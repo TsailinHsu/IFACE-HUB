@@ -1,0 +1,16 @@
+services:
+  iface-eip-fetcher:
+    container_name: iface-eip-fetcher
+    image: iface-eip-fetcher:1.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    networks:
+      - iface-net
+    env_file:
+      - .env
+    restart: "no"             # 由 cron + run-job.sh 觸發，不自動重啟
+
+networks:
+  iface-net:
+    external: true

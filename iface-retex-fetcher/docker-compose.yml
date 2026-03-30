@@ -1,0 +1,16 @@
+services:
+  iface-retex-fetcher:
+    container_name: iface-retex-fetcher
+    image: iface-retex-fetcher:1.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    networks:
+      - iface-net
+    env_file:
+      - .env
+    restart: "no"
+
+networks:
+  iface-net:
+    external: true

@@ -1,0 +1,29 @@
+services:
+  iface-db:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: iface-db
+    ports:
+      - "8100:8000"       # 公司 A：host port 8100
+    env_file:
+      - .env
+    networks:
+      - iface-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  iface-net:
+    external: true        # 須先執行：docker network create iface-net
+
+# 公司 B 部署時：
+#   複製此目錄為 iface-db-ll/
+#   修改 .env 中的 IFACE_SERVER 為 INSTANCE_B
+#   修改 container_name 為 iface-db-ll
+#   修改 ports 為 "8101:8000"
