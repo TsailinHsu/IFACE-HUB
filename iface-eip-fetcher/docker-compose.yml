@@ -1,7 +1,7 @@
 services:
   iface-eip-fetcher:
-    container_name: iface-eip-fetcher
-    image: iface-eip-fetcher:1.0
+    container_name: ${CONTAINER_NAME:-iface-eip-fetcher}
+    image: ${IMAGE_NAME:-iface-eip-fetcher}:1.0
     build:
       context: .
       dockerfile: Dockerfile
@@ -14,3 +14,13 @@ services:
 networks:
   iface-net:
     external: true
+
+# 公司 B 部署時：
+#   複製 .env 為 .env.ll，修改：
+#     CONTAINER_NAME=iface-eipll-fetcher
+#     IMAGE_NAME=iface-eipll-fetcher
+#     EIP_CONFIG=config/eipll.yml
+#     EIP_MODULE=LLEIP
+#     EIP_ACCESS_KEY=<公司B金鑰>
+#     DB_API_URL=http://iface-db-ll:8000
+#   執行：./run-job.sh -e .env.ll order

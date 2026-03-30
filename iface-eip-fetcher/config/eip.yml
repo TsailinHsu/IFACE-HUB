@@ -1,0 +1,125 @@
+# ============================================================
+# EIP Fetcher 設定 — 公司 A
+# EIP_MODULE=EIP, iface-db 連線: INSTANCE_A
+# ============================================================
+
+module: EIP
+
+jobs:
+
+  # ----------------------------------------------------------
+  # order：銷貨 / 銷退 / 庫存異動
+  # ----------------------------------------------------------
+  order:
+    fetch:
+      - type: order
+        shipping_status: shipped
+        source_types:
+          - line_gift       # Line 禮物
+          - shopee          # 蝦皮
+          - super_landing   # 一頁商店
+          - distributor     # 經銷
+          - shopify         # Shopify
+          - return_change   # 退貨補寄
+          - repost          # 補寄單
+          - requisit        # 領料單
+      - type: order_return
+        return_types: [return, change, refund]
+      - type: order_reject
+      - type: order_problem
+      - type: inventory_transfer
+      - type: inventory_change
+
+    procedures:
+      - XXIF_COPTG_EIP_Import   # 銷貨（含 return_change, repost, requisit）
+      - XXIF_COPTI_EIP_Import   # 銷退（含 orderReject, orderProblem）
+      - XXIF_INVTA_EIP_Import   # 庫存異動（含 transfers, inventoryChange）
+
+    reply:
+      - endpoint: /orders/
+        view: COPTG_EIP_ORDER_APPLY_vw
+      - endpoint: /order_returns/
+        view: COPTI_EIP_APPLY_vw
+      - endpoint: /order_rejects/
+        view: COPTI_EIP_Reject_APPLY_vw
+      - endpoint: /order_problems/
+        view: COPTI_EIP_Problem_APPLY_vw
+      - endpoint: /orders/
+        view: COPTG_EIP_Requisit_APPLY_vw
+      - endpoint: /transfers/
+        view: INVTA_Transfer_EIP_APPLY_vw
+      - endpoint: /inventory_changes/
+        view: INVTA_Change_EIP_APPLY_vw
+
+    status_functions:
+      - line_gift
+      - shopee
+      - super_landing
+      - distributor
+      - shopify
+      - return_change
+      - repost
+      - requisit
+      - return
+      - change
+      - refund
+      - orderReject
+      - orderProblem
+      - transfers
+      - inventoryChange
+
+  # ----------------------------------------------------------
+  # payment：請款單
+  # ----------------------------------------------------------
+  payment:
+    fetch:
+      - type: payment_request
+
+    procedures:
+      - XXIF_ACPTA_Import
+
+    reply:
+      - endpoint: /payment_requests/
+        view: ACPTA_EIP_APPLY_vw
+
+    status_functions:
+      - 請款單
+
+  # ----------------------------------------------------------
+  # pre_products：品號申請
+  # ----------------------------------------------------------
+  pre_products:
+    fetch:
+      - type: pre_products
+
+    procedures:
+      - XXIF_INVMB_Import
+
+    reply:
+      - endpoint: /pre_products/
+        view: INVMB_EIP_APPLY_vw
+
+    status_functions:
+      - preProducts
+
+  # ----------------------------------------------------------
+  # inventory：庫存異動（單獨補跑用）
+  # 注意：order job 已包含完整庫存異動流程
+  # ----------------------------------------------------------
+  inventory:
+    fetch:
+      - type: inventory_change
+      - type: inventory_transfer
+
+    procedures:
+      - XXIF_INVTA_EIP_Import
+
+    reply:
+      - endpoint: /inventory_changes/
+        view: INVTA_Change_EIP_APPLY_vw
+      - endpoint: /transfers/
+        view: INVTA_Transfer_EIP_APPLY_vw
+
+    status_functions:
+      - inventoryChange
+      - transfers

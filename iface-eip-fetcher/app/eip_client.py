@@ -1,16 +1,17 @@
 """
 EIP API 客戶端
-封裝所有對 api-eip.speeding-rocket.com 的 HTTP 請求
+封裝所有對 EIP API 的 HTTP 請求。
+reply view 名稱與 endpoint 由呼叫端（pipeline）傳入，此處不硬編碼。
 """
 
 import json
 import os
 import requests
-from iface_client import iface_import
+from iface_client import iface_import, get_reply
 
 _BASE_URL   = os.getenv("EIP_BASE_URL",   "https://api-eip.speeding-rocket.com")
 _ACCESS_KEY = os.getenv("EIP_ACCESS_KEY", "")
-_MODULE     = os.getenv("EIP_MODULE",     "EIP")   # 公司 A="EIP"，公司 B 可覆寫
+_MODULE     = os.getenv("EIP_MODULE",     "EIP")   # 公司 A="EIP"，公司 B="LLEIP"
 
 
 def _fetch_all(api_url: str, query: dict) -> dict:
@@ -55,7 +56,7 @@ def _api_call(endpoint: str, query: dict, function: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Fetch functions（對應 eipUtil 原有函式）
+# Fetch functions
 # ---------------------------------------------------------------------------
 
 def order(import_status: int, shipping_status: str, source_type: str) -> None:
@@ -136,25 +137,22 @@ def price_change(begin_date: str, end_date: str, field_type: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Reply functions（回寫 ERP 單號至 EIP）
+# Reply：回寫 ERP 單號至 EIP
+# endpoint 與 view_name 由 pipeline 從 YAML 傳入，此處不硬編碼
 # ---------------------------------------------------------------------------
 
-def _reply(api_base: str, view_name: str) -> None:
+def reply(api_base: str, view_name: str) -> None:
     """
     從 IFACE reply view 取得 (ID, RefId) 清單，
     逐筆 POST 至 EIP /.../:id/ok.json
     """
-    from iface_client import get_reply
-
     items = get_reply(view_name)
     if not items:
         return
 
-    params = {"access_key": _ACCESS_KEY}
-
     for item in items:
-        url = f"{_BASE_URL}{api_base}{item['ID']}/ok.json"
-        data = {**params, "id": item["ID"], "erp_ref_id": item["RefId"]}
+        url  = f"{_BASE_URL}{api_base}{item['ID']}/ok.json"
+        data = {"access_key": _ACCESS_KEY, "id": item["ID"], "erp_ref_id": item["RefId"]}
 
         try:
             resp = requests.post(url, params=data, timeout=30)
@@ -163,14 +161,3 @@ def _reply(api_base: str, view_name: str) -> None:
         except requests.exceptions.RequestException as err:
             print(f"Reply error: {err}")
             continue
-
-
-def order_reply()             -> None: _reply("/orders/",             "COPTG_EIP_ORDER_APPLY_vw")
-def order_return_reply()      -> None: _reply("/order_returns/",      "COPTI_EIP_APPLY_vw")
-def order_reject_reply()      -> None: _reply("/order_rejects/",      "COPTI_EIP_Reject_APPLY_vw")
-def order_problem_reply()     -> None: _reply("/order_problems/",     "COPTI_EIP_Problem_APPLY_vw")
-def order_requisit_reply()    -> None: _reply("/orders/",             "COPTG_EIP_Requisit_APPLY_vw")
-def inventory_transfer_reply()-> None: _reply("/transfers/",          "INVTA_Transfer_EIP_APPLY_vw")
-def inventory_change_reply()  -> None: _reply("/inventory_changes/",  "INVTA_Change_EIP_APPLY_vw")
-def payment_request_reply()   -> None: _reply("/payment_requests/",   "ACPTA_EIP_APPLY_vw")
-def pre_products_reply()      -> None: _reply("/pre_products/",       "INVMB_EIP_APPLY_vw")

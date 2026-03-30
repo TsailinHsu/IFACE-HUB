@@ -1,0 +1,22 @@
+services:
+  iface-initdb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: iface-initdb
+    env_file:
+      - .env
+    networks:
+      - iface-net
+    restart: "no"         # init container：執行一次後退出
+
+networks:
+  iface-net:
+    external: true        # 須先執行：docker network create iface-net
+
+# 使用方式：
+#   docker compose run --rm iface-initdb
+#
+# 公司 B 部署時：
+#   複製 .env，修改 IFACE_SERVER 為 INSTANCE_B
+#   docker compose --env-file .env.ll run --rm iface-initdb

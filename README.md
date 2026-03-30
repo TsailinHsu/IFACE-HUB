@@ -23,14 +23,20 @@ Super Landing    ──HTTP──▶       sp/{name}
 
 ```
 iface-hub/
-├── sql/                            MSSQL schema migrations（按序執行）
-│   ├── 01-alter-iface-table.sql    新增 PROCESSED_DATE, ERROR_MESSAGE, RETRY_COUNT
-│   ├── 02-create-iface-error-table.sql  IFACE_ERROR quarantine 資料表
-│   └── 03-create-indexes.sql       效能索引
+├── sql/                            MSSQL schema 參考文件
+│   ├── 01-create-tables.sql        IFACE + IFACE_ERROR 資料表定義
+│   └── 02-create-indexes.sql       效能索引
+│
+├── iface-initdb/                   資料庫初始化（init container，一次性執行）
+│   └── initdb/
+│       ├── 01-create-tables.sql    建表（IF NOT EXISTS，冪等）
+│       └── 02-create-indexes.sql   建索引（IF NOT EXISTS，冪等）
 │
 ├── iface-db/                       核心 API 服務（長期運行）
-├── iface-eip-fetcher/              公司 A — EIP 電商平台
-├── iface-eipll-fetcher/            公司 B — EIP LL 電商平台
+├── iface-eip-fetcher/              EIP 電商平台（公司 A / B 共用，YAML 設定切換）
+│   └── config/
+│       ├── eip.yml                 公司 A 流程設定（MODULE=EIP）
+│       └── eipll.yml               公司 B 流程設定（MODULE=LLEIP）
 ├── iface-retex-fetcher/            公司 A — RETEX POS 系統
 └── iface-xdelivery-fetcher/        公司 A — xdelivery 物流 / Super Landing
 ```
@@ -39,7 +45,7 @@ iface-hub/
 
 | | 公司 A | 公司 B (EIP LL) |
 |---|---|---|
-| EIP | ✓ | ✓ |
+| EIP | ✓ `.env` | ✓ `.env.ll` |
 | RETEX POS | ✓ | — |
 | xdelivery | ✓ | — |
 | Cosmos ERP | `INSTANCE_A` | `INSTANCE_B` |
@@ -55,27 +61,29 @@ iface-hub/
 docker network create iface-net
 ```
 
-**2. 執行 MSSQL migrations（在 SSMS 或 sqlcmd 執行）**
+**2. 初始化資料庫（一次性）**
 
 ```bash
-# 依序執行
-sql/01-alter-iface-table.sql
-sql/02-create-iface-error-table.sql
-sql/03-create-indexes.sql
+cd iface-initdb
+cp .env.example .env
+# 填入 MSSQL 連線資訊
+vim .env
+
+# 執行初始化（自動建立 IFACE、IFACE_ERROR 資料表及索引）
+docker compose run --rm iface-initdb
+
+# 公司 B（另一個 MSSQL instance）
+cp .env .env.ll && vim .env.ll
+docker compose --env-file .env.ll run --rm iface-initdb
 ```
 
 ### 啟動 iface-db（公司 A）
 
 ```bash
 cd iface-db
-cp .env.example .env
-# 編輯 .env，填入實際的 MSSQL 連線資訊
-vim .env
-
+cp .env.example .env && vim .env
 docker compose up -d --build
 ```
-
-驗證服務：
 
 ```bash
 curl http://localhost:8100/health
@@ -85,14 +93,12 @@ curl http://localhost:8100/health
 ### 啟動 iface-db（公司 B）
 
 ```bash
-# 複製 iface-db 目錄，調整設定
+# 複製目錄，調整連線至 INSTANCE_B
 cp -r iface-db iface-db-ll
 cd iface-db-ll
 
-# 修改 .env：IFACE_SERVER 改為 INSTANCE_B
-# 修改 docker-compose.yml：
-#   container_name: iface-db-ll
-#   ports: "8101:8000"
+# .env: 修改 IFACE_SERVER 為 INSTANCE_B
+# docker-compose.yml: container_name=iface-db-ll, ports="8101:8000"
 
 docker compose up -d --build
 ```
@@ -100,18 +106,16 @@ docker compose up -d --build
 ### 建立 fetcher image
 
 ```bash
-# 公司 A
-cd iface-eip-fetcher && cp .env.example .env && vim .env
+# EIP fetcher（公司 A + B 共用同一個 image）
+cd iface-eip-fetcher
+cp .env.example .env && vim .env          # 公司 A
+cp .env.ll.example .env.ll && vim .env.ll # 公司 B
 docker compose build
 
 cd ../iface-retex-fetcher && cp .env.example .env && vim .env
 docker compose build
 
 cd ../iface-xdelivery-fetcher && cp .env.example .env && vim .env
-docker compose build
-
-# 公司 B
-cd ../iface-eipll-fetcher && cp .env.example .env && vim .env
 docker compose build
 ```
 
@@ -123,40 +127,37 @@ crontab -e
 
 ```cron
 # 公司 A — EIP
-0  7  * * *  /xxx/iface-hub/iface-eip-fetcher/run-job.sh order >> /var/log/iface-eip-order.log 2>&1
-30 7  * * *  /xxx/iface-hub/iface-eip-fetcher/run-job.sh payment >> /var/log/iface-eip-payment.log 2>&1
-0  8  * * *  /xxx/iface-hub/iface-eip-fetcher/run-job.sh pre_products >> /var/log/iface-eip-pre-products.log 2>&1
+0  7  * * *  /xxx/iface-hub/iface-eip-fetcher/run-job.sh order        >> /var/log/iface-eip-order.log 2>&1
+30 7  * * *  /xxx/iface-hub/iface-eip-fetcher/run-job.sh payment       >> /var/log/iface-eip-payment.log 2>&1
+0  8  * * *  /xxx/iface-hub/iface-eip-fetcher/run-job.sh pre_products  >> /var/log/iface-eip-pre-products.log 2>&1
 
 # 公司 B — EIP LL
-0  7  * * *  /xxx/iface-hub/iface-eipll-fetcher/run-job.sh order >> /var/log/iface-eipll-order.log 2>&1
-30 7  * * *  /xxx/iface-hub/iface-eipll-fetcher/run-job.sh payment >> /var/log/iface-eipll-payment.log 2>&1
+0  7  * * *  /xxx/iface-hub/iface-eip-fetcher/run-job.sh -e .env.ll order       >> /var/log/iface-eipll-order.log 2>&1
+30 7  * * *  /xxx/iface-hub/iface-eip-fetcher/run-job.sh -e .env.ll payment      >> /var/log/iface-eipll-payment.log 2>&1
+0  8  * * *  /xxx/iface-hub/iface-eip-fetcher/run-job.sh -e .env.ll pre_products >> /var/log/iface-eipll-pre-products.log 2>&1
 
 # 公司 A — RETEX POS
 30 6  * * *  /xxx/iface-hub/iface-retex-fetcher/run-job.sh daily >> /var/log/iface-retex.log 2>&1
 
 # 公司 A — xdelivery
 0  6  * * *  /xxx/iface-hub/iface-xdelivery-fetcher/run-job.sh order >> /var/log/iface-xdelivery-order.log 2>&1
-0  9  * * *  /xxx/iface-hub/iface-xdelivery-fetcher/run-job.sh saas >> /var/log/iface-xdelivery-saas.log 2>&1
+0  9  * * *  /xxx/iface-hub/iface-xdelivery-fetcher/run-job.sh saas  >> /var/log/iface-xdelivery-saas.log 2>&1
 ```
 
 ## 手動執行 Job
 
 ```bash
-# 語法
-./run-job.sh <job>
-
-# EIP
+# EIP — 公司 A
 cd iface-eip-fetcher
 ./run-job.sh order          # 訂單（銷貨、銷退、庫存異動）
 ./run-job.sh payment        # 請款單
 ./run-job.sh pre_products   # 品號申請
 ./run-job.sh inventory      # 庫存異動（補跑用）
 
-# EIP LL
-cd iface-eipll-fetcher
-./run-job.sh order
-./run-job.sh payment
-./run-job.sh pre_products
+# EIP — 公司 B（加 -e .env.ll）
+./run-job.sh -e .env.ll order
+./run-job.sh -e .env.ll payment
+./run-job.sh -e .env.ll pre_products
 
 # RETEX
 cd iface-retex-fetcher
@@ -167,6 +168,40 @@ cd iface-xdelivery-fetcher
 ./run-job.sh order          # 退貨（前 3 日）
 ./run-job.sh saas           # SaaS 服務費 / 簡訊儲值
 ```
+
+## EIP Fetcher 流程設定
+
+`iface-eip-fetcher` 的 job 流程定義於 `config/` 下的 YAML 檔，不寫死在程式碼中。
+新增公司或修改 SP / View，只需編輯 YAML，不需異動 Python 程式碼。
+
+```
+iface-eip-fetcher/
+├── config/
+│   ├── eip.yml      # 公司 A：MODULE=EIP，SP/View 名稱清單
+│   └── eipll.yml    # 公司 B：MODULE=LLEIP，SP/View 名稱清單
+└── app/
+    ├── pipeline.py  # 通用執行引擎（Fetch → SP → Reply → Status Update）
+    ├── eip_client.py
+    ├── iface_client.py
+    └── main.py
+```
+
+每個 job 在 YAML 中定義四個步驟：
+
+```yaml
+jobs:
+  order:
+    fetch:      # 呼叫哪些 EIP API、帶什麼參數
+    procedures: # 依序執行哪些 SP
+    reply:      # 各回傳 View → EIP endpoint 對應
+    status_functions: # 更新哪些 function 的狀態（5→6）
+```
+
+**新增公司 C 的步驟：**
+
+1. 複製 `config/eip.yml` → `config/eipcc.yml`，修改 `module`、SP 名稱、View 名稱
+2. 複製 `.env.example` → `.env.cc`，設定 `EIP_CONFIG=config/eipcc.yml`
+3. 執行：`./run-job.sh -e .env.cc order`
 
 ## iface-db API 端點
 
@@ -193,6 +228,15 @@ API 文件（Swagger UI）：`http://localhost:8100/docs`
 
 ## 環境變數
 
+### iface-initdb
+
+| 變數 | 說明 | 範例 |
+|------|------|------|
+| `IFACE_SERVER` | MSSQL 伺服器及 instance | `192.168.101.204\INSTANCE_A` |
+| `IFACE_USER` | 資料庫帳號 | `mis` |
+| `IFACE_PWD` | 資料庫密碼 | |
+| `IFACE_DB` | 資料庫名稱 | `IFACE` |
+
 ### iface-db
 
 | 變數 | 說明 | 範例 |
@@ -208,19 +252,15 @@ API 文件（Swagger UI）：`http://localhost:8100/docs`
 
 | 變數 | 說明 | 範例 |
 |------|------|------|
+| `CONTAINER_NAME` | Docker container 名稱 | `iface-eip-fetcher` |
+| `IMAGE_NAME` | Docker image 名稱 | `iface-eip-fetcher` |
+| `EIP_CONFIG` | YAML 設定檔路徑 | `config/eip.yml` |
 | `DB_API_URL` | iface-db 位址 | `http://iface-db:8000` |
 | `EIP_BASE_URL` | EIP API 網址 | `https://api-eip.speeding-rocket.com` |
-| `EIP_ACCESS_KEY` | EIP 存取金鑰 | |
 | `EIP_MODULE` | IFACE 模組代碼 | `EIP` |
+| `EIP_ACCESS_KEY` | EIP 存取金鑰 | |
 
-### iface-eipll-fetcher
-
-| 變數 | 說明 | 範例 |
-|------|------|------|
-| `DB_API_URL` | iface-db-ll 位址 | `http://iface-db-ll:8000` |
-| `EIP_BASE_URL` | EIP LL API 網址 | `https://api.jessetang.eips.app` |
-| `EIP_ACCESS_KEY` | EIP LL 存取金鑰 | |
-| `EIP_MODULE` | IFACE 模組代碼 | `LLEIP` |
+公司 B（`.env.ll`）：`EIP_CONFIG=config/eipll.yml`、`EIP_MODULE=LLEIP`、`DB_API_URL=http://iface-db-ll:8000`
 
 ### iface-retex-fetcher
 
@@ -249,8 +289,8 @@ API 文件（Swagger UI）：`http://localhost:8100/docs`
 ```
 EIP API → eip_client（分頁抓取）
         → iface_client.iface_import()    寫入 IFACE（STATUS=0）
-        → iface_client.run_procedure()   執行 XXIF_COPTG_EIP_Import
-        → eip_client._reply()            查 reply view → POST EIP /ok.json
+        → iface_client.run_procedure()   執行 SP（由 YAML 設定）
+        → eip_client.reply()             查 reply view → POST EIP /ok.json
         → iface_client.status_update()   STATUS 5→6
 ```
 

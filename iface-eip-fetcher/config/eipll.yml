@@ -1,0 +1,104 @@
+# ============================================================
+# EIP Fetcher 設定 — 公司 B（EIP LL）
+# EIP_MODULE=LLEIP, iface-db 連線: INSTANCE_B
+# ============================================================
+
+module: LLEIP
+
+jobs:
+
+  # ----------------------------------------------------------
+  # order：銷貨 / 銷退 / 庫存異動
+  # ----------------------------------------------------------
+  order:
+    fetch:
+      - type: order
+        shipping_status: shipped
+        source_types:
+          - line_gift
+          - shopee
+          - super_landing
+          - distributor
+          - shopify
+          - return_change
+          - repost
+          - requisit
+      - type: order_return
+        return_types: [return, change, refund]
+      - type: order_reject
+      - type: order_problem
+      - type: inventory_transfer
+      - type: inventory_change
+
+    procedures:
+      - XXIF_COPTG_LL_Import
+      - XXIF_COPTI_LL_Import
+      - XXIF_INVTA_LL_Import
+
+    reply:
+      - endpoint: /orders/
+        view: COPTG_LL_ORDER_APPLY_vw
+      - endpoint: /order_returns/
+        view: COPTI_LL_APPLY_vw
+      # 以下 view 目前無 LL 專屬版本，沿用 EIP view
+      - endpoint: /order_rejects/
+        view: COPTI_EIP_Reject_APPLY_vw
+      - endpoint: /order_problems/
+        view: COPTI_EIP_Problem_APPLY_vw
+      - endpoint: /orders/
+        view: COPTG_EIP_Requisit_APPLY_vw
+      - endpoint: /transfers/
+        view: INVTA_Transfer_EIP_APPLY_vw
+      - endpoint: /inventory_changes/
+        view: INVTA_Change_EIP_APPLY_vw
+
+    status_functions:
+      - line_gift
+      - shopee
+      - super_landing
+      - distributor
+      - shopify
+      - return_change
+      - repost
+      - requisit
+      - return
+      - change
+      - refund
+      - orderReject
+      - orderProblem
+      - transfers
+      - inventoryChange
+
+  # ----------------------------------------------------------
+  # payment：請款單
+  # ----------------------------------------------------------
+  payment:
+    fetch:
+      - type: payment_request
+
+    procedures:
+      - XXIF_ACPTA_LL_Import
+
+    reply:
+      - endpoint: /payment_requests/
+        view: ACPTA_LL_APPLY_vw
+
+    status_functions:
+      - 請款單
+
+  # ----------------------------------------------------------
+  # pre_products：品號申請
+  # ----------------------------------------------------------
+  pre_products:
+    fetch:
+      - type: pre_products
+
+    procedures:
+      - XXIF_INVMB_LL_Import
+
+    reply:
+      - endpoint: /pre_products/
+        view: INVMB_LL_APPLY_vw
+
+    status_functions:
+      - preProducts
