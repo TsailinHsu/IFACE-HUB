@@ -123,20 +123,20 @@ crontab -e
 
 ```cron
 # 公司 A — EIP
-0  7  * * *  /home/tsailin/workspace/iface-hub/iface-eip-fetcher/run-job.sh order >> /var/log/iface-eip-order.log 2>&1
-30 7  * * *  /home/tsailin/workspace/iface-hub/iface-eip-fetcher/run-job.sh payment >> /var/log/iface-eip-payment.log 2>&1
-0  8  * * *  /home/tsailin/workspace/iface-hub/iface-eip-fetcher/run-job.sh pre_products >> /var/log/iface-eip-pre-products.log 2>&1
+0  7  * * *  /xxx/iface-hub/iface-eip-fetcher/run-job.sh order >> /var/log/iface-eip-order.log 2>&1
+30 7  * * *  /xxx/iface-hub/iface-eip-fetcher/run-job.sh payment >> /var/log/iface-eip-payment.log 2>&1
+0  8  * * *  /xxx/iface-hub/iface-eip-fetcher/run-job.sh pre_products >> /var/log/iface-eip-pre-products.log 2>&1
 
 # 公司 B — EIP LL
-0  7  * * *  /home/tsailin/workspace/iface-hub/iface-eipll-fetcher/run-job.sh order >> /var/log/iface-eipll-order.log 2>&1
-30 7  * * *  /home/tsailin/workspace/iface-hub/iface-eipll-fetcher/run-job.sh payment >> /var/log/iface-eipll-payment.log 2>&1
+0  7  * * *  /xxx/iface-hub/iface-eipll-fetcher/run-job.sh order >> /var/log/iface-eipll-order.log 2>&1
+30 7  * * *  /xxx/iface-hub/iface-eipll-fetcher/run-job.sh payment >> /var/log/iface-eipll-payment.log 2>&1
 
 # 公司 A — RETEX POS
-30 6  * * *  /home/tsailin/workspace/iface-hub/iface-retex-fetcher/run-job.sh daily >> /var/log/iface-retex.log 2>&1
+30 6  * * *  /xxx/iface-hub/iface-retex-fetcher/run-job.sh daily >> /var/log/iface-retex.log 2>&1
 
 # 公司 A — xdelivery
-0  6  * * *  /home/tsailin/workspace/iface-hub/iface-xdelivery-fetcher/run-job.sh order >> /var/log/iface-xdelivery-order.log 2>&1
-0  9  * * *  /home/tsailin/workspace/iface-hub/iface-xdelivery-fetcher/run-job.sh saas >> /var/log/iface-xdelivery-saas.log 2>&1
+0  6  * * *  /xxx/iface-hub/iface-xdelivery-fetcher/run-job.sh order >> /var/log/iface-xdelivery-order.log 2>&1
+0  9  * * *  /xxx/iface-hub/iface-xdelivery-fetcher/run-job.sh saas >> /var/log/iface-xdelivery-saas.log 2>&1
 ```
 
 ## 手動執行 Job
