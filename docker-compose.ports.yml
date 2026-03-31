@@ -1,0 +1,16 @@
+# ============================================================
+# docker-compose.ports.yml — iface-db 對外 port 綁定（選用）
+#
+# 部署在同一 Host 的多個公司，各自在 .env.x 設定不重複的 port。
+# 疊加方式：
+#   docker compose --env-file .env.a -f docker-compose.yml -f docker-compose.ports.yml up -d
+#
+# 使用情境：
+#   - 開發與偵錯（直接存取 Swagger UI）
+#   - 未來提供 Web UI 或對外 API
+# ============================================================
+
+services:
+  iface-db:
+    ports:
+      - "${IFACE_DB_PORT}:8000"

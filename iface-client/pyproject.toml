@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "iface-client"
+version = "1.0.0"
+description = "iface-db HTTP client shared by all fetchers"
+requires-python = ">=3.11"
+dependencies = ["requests"]

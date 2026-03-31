@@ -1,0 +1,94 @@
+# ============================================================
+# iface-hub — Hub-level Docker Compose
+#
+# 使用方式：
+#   docker compose --env-file .env.a <command>
+#
+# COMPOSE_PROJECT_NAME 定義於各公司 .env 檔，Docker Compose
+# 自動以此建立獨立的 project 與 network，各公司完全隔離。
+# 同一 project 內部服務以 service name 互通，無需設定 DB_API_URL。
+#
+# iface-db 預設不對外綁定 host port（內部服務，fetcher 直接透過
+# Docker network 存取）。如需對外開放（開發、UI、API），疊加：
+#   docker compose --env-file .env.a -f docker-compose.ports.yml up -d
+# ============================================================
+
+services:
+
+  # ── Core API (long-running) ─────────────────────────────────
+  iface-db:
+    build:
+      context: ./iface-db
+      dockerfile: Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME}-db
+    environment:
+      IFACE_SERVER: ${IFACE_SERVER}
+      IFACE_USER:   ${IFACE_USER}
+      IFACE_PWD:    ${IFACE_PWD}
+      IFACE_DB:     ${IFACE_DB:-IFACE}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ── DB Initializer (one-shot, 首次部署執行) ─────────────────
+  iface-initdb:
+    build:
+      context: ./iface-initdb
+      dockerfile: Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME}-initdb
+    environment:
+      IFACE_SERVER: ${IFACE_SERVER}
+      IFACE_USER:   ${IFACE_USER}
+      IFACE_PWD:    ${IFACE_PWD}
+      IFACE_DB:     ${IFACE_DB:-IFACE}
+    restart: "no"
+    profiles: [init]
+
+  # ── EIP Fetcher (on-demand) ─────────────────────────────────
+  iface-eip-fetcher:
+    build:
+      context: .
+      dockerfile: iface-eip-fetcher/Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME}-eip-fetcher
+    environment:
+      DB_API_URL:     http://iface-db:8000
+      EIP_CONFIG:     ${EIP_CONFIG:-config/eip.yml}
+      EIP_BASE_URL:   ${EIP_BASE_URL}
+      EIP_MODULE:     ${EIP_MODULE:-EIP}
+      EIP_ACCESS_KEY: ${EIP_ACCESS_KEY}
+    restart: "no"
+    profiles: [eip]
+
+  # ── RETEX Fetcher (on-demand) ────────────────────────────────
+  iface-retex-fetcher:
+    build:
+      context: .
+      dockerfile: iface-retex-fetcher/Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME}-retex-fetcher
+    environment:
+      DB_API_URL:     http://iface-db:8000
+      RETEX_BASE_URL: ${RETEX_BASE_URL}
+      RETEX_TOKEN:    ${RETEX_TOKEN}
+      RETEX_API_KEY:  ${RETEX_API_KEY}
+      RETEX_API_IV:   ${RETEX_API_IV}
+      RETEX_SALT_KEY: ${RETEX_SALT_KEY}
+    restart: "no"
+    profiles: [retex]
+
+  # ── xdelivery Fetcher (on-demand) ───────────────────────────
+  iface-xdelivery-fetcher:
+    build:
+      context: .
+      dockerfile: iface-xdelivery-fetcher/Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME}-xdelivery-fetcher
+    environment:
+      DB_API_URL:              http://iface-db:8000
+      XDELIVERY_ACCESS_KEY:    ${XDELIVERY_ACCESS_KEY}
+      XDELIVERY_MERCHANT_ID:   ${XDELIVERY_MERCHANT_ID}
+      XDELIVERY_MERCHANT_NAME: ${XDELIVERY_MERCHANT_NAME}
+    restart: "no"
+    profiles: [xdelivery]

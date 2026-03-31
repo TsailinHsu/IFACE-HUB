@@ -23,11 +23,16 @@ Super Landing    ──HTTP──▶       sp/{name}
 
 ```
 iface-hub/
+├── docker-compose.yml              Hub-level compose（主要部署入口）
+├── run-job.sh                      Hub-level job runner
+├── .env.a.example                  公司 A 完整環境設定範本
+├── .env.b.example                  公司 B 完整環境設定範本
+│
 ├── sql/                            MSSQL schema 參考文件
 │   ├── 01-create-tables.sql        IFACE + IFACE_ERROR 資料表定義
 │   └── 02-create-indexes.sql       效能索引
 │
-├── iface-initdb/                   資料庫初始化（init container，一次性執行）
+├── iface-initdb/                   資料庫初始化（init container，首次部署執行）
 │   └── initdb/
 │       ├── 01-create-tables.sql    建表（IF NOT EXISTS，冪等）
 │       └── 02-create-indexes.sql   建索引（IF NOT EXISTS，冪等）
@@ -37,15 +42,39 @@ iface-hub/
 │   └── config/
 │       ├── eip.yml                 公司 A 流程設定（MODULE=EIP）
 │       └── eipll.yml               公司 B 流程設定（MODULE=LLEIP）
-├── iface-retex-fetcher/            公司 A — RETEX POS 系統
-└── iface-xdelivery-fetcher/        公司 A — xdelivery 物流 / Super Landing
+├── iface-retex-fetcher/            RETEX POS 系統
+├── iface-xdelivery-fetcher/        xdelivery 物流 / Super Landing
+└── iface-client/                   共用 iface-db HTTP client（Python package）
+```
+
+## 多公司部署模型
+
+**一組 `.env` = 一套完整公司環境。** 透過 `COMPOSE_PROJECT_NAME`，Docker Compose 自動建立隔離的 project 與 network，各公司容器互不干擾。
+
+```
+.env.a  →  COMPOSE_PROJECT_NAME=iface-a  →  network: iface-a_default
+.env.b  →  COMPOSE_PROJECT_NAME=iface-b  →  network: iface-b_default
+```
+
+- **同一 project 內**，fetcher 永遠以 `http://iface-db:8000` 呼叫 iface-db（無需設定 `DB_API_URL`）
+- **跨 project**，network 完全隔離，無需手動建立 Docker network
+- **只有 `IFACE_DB_PORT`** 需要在各公司間不重複（對外 host port，供 Swagger UI / 人工查詢使用）
+- **新增公司** = 新增 `.env.x`，zero code change
+
+```
+公司 A (.env.a)              公司 B (.env.b)
+─────────────────────         ─────────────────────
+iface-a-db       port:8100   iface-b-db       port:8101
+iface-a-eip-fetcher          iface-b-eip-fetcher
+iface-a-retex-fetcher        （公司 B 不使用）
+iface-a-xdelivery-fetcher    （公司 B 不使用）
 ```
 
 ## 公司與資料來源對應
 
 | | 公司 A | 公司 B (EIP LL) |
 |---|---|---|
-| EIP | ✓ `.env` | ✓ `.env.ll` |
+| EIP | ✓ `config/eip.yml` | ✓ `config/eipll.yml` |
 | RETEX POS | ✓ | — |
 | xdelivery | ✓ | — |
 | Cosmos ERP | `INSTANCE_A` | `INSTANCE_B` |
@@ -53,73 +82,49 @@ iface-hub/
 
 ## 快速開始
 
-### 前置作業
-
-**1. 建立 Docker 網路（一次性）**
+### 1. 準備環境設定
 
 ```bash
-docker network create iface-net
+cp .env.a.example .env.a && vim .env.a   # 公司 A
+cp .env.b.example .env.b && vim .env.b   # 公司 B
 ```
 
-**2. 初始化資料庫（一次性）**
+最少需填寫：`IFACE_SERVER`、`IFACE_USER`、`IFACE_PWD`、各外部 API 金鑰。
+
+### 2. 初始化資料庫（首次部署，各公司一次）
 
 ```bash
-cd iface-initdb
-cp .env.example .env
-# 填入 MSSQL 連線資訊
-vim .env
-
-# 執行初始化（自動建立 IFACE、IFACE_ERROR 資料表及索引）
-docker compose run --rm iface-initdb
-
-# 公司 B（另一個 MSSQL instance）
-cp .env .env.ll && vim .env.ll
-docker compose --env-file .env.ll run --rm iface-initdb
+./run-job.sh -e .env.a init   # 建立 IFACE、IFACE_ERROR 資料表及索引（公司 A）
+./run-job.sh -e .env.b init   # 公司 B
 ```
 
-### 啟動 iface-db（公司 A）
+### 3. 啟動 iface-db
 
 ```bash
-cd iface-db
-cp .env.example .env && vim .env
-docker compose up -d --build
+# 公司 A
+docker compose --env-file .env.a up -d --build
+
+# 公司 B
+docker compose --env-file .env.b up -d --build
 ```
+
+`iface-db` 預設不對外綁定 host port，fetcher 透過 Docker network 內部存取。
+如需 Swagger UI 或外部 API 存取（開發用途），在 `.env.x` 設定 `IFACE_DB_PORT` 並疊加 override：
 
 ```bash
-curl http://localhost:8100/health
-# {"status": "ok"}
+# 在 .env.a 取消 IFACE_DB_PORT=8100 的註解，然後：
+docker compose --env-file .env.a -f docker-compose.yml -f docker-compose.ports.yml up -d
+
+curl http://localhost:8100/health   # → {"status": "ok"}
 ```
 
-### 啟動 iface-db（公司 B）
+### 4. 建立 fetcher image（一次性）
 
 ```bash
-# 複製目錄，調整連線至 INSTANCE_B
-cp -r iface-db iface-db-ll
-cd iface-db-ll
-
-# .env: 修改 IFACE_SERVER 為 INSTANCE_B
-# docker-compose.yml: container_name=iface-db-ll, ports="8101:8000"
-
-docker compose up -d --build
+docker compose --env-file .env.a build
 ```
 
-### 建立 fetcher image
-
-```bash
-# EIP fetcher（公司 A + B 共用同一個 image）
-cd iface-eip-fetcher
-cp .env.example .env && vim .env          # 公司 A
-cp .env.ll.example .env.ll && vim .env.ll # 公司 B
-docker compose build
-
-cd ../iface-retex-fetcher && cp .env.example .env && vim .env
-docker compose build
-
-cd ../iface-xdelivery-fetcher && cp .env.example .env && vim .env
-docker compose build
-```
-
-### 設定 crontab
+### 5. 設定 crontab
 
 ```bash
 crontab -e
@@ -127,46 +132,40 @@ crontab -e
 
 ```cron
 # 公司 A — EIP
-0  7  * * *  /xxx/iface-hub/iface-eip-fetcher/run-job.sh order        >> /var/log/iface-eip-order.log 2>&1
-30 7  * * *  /xxx/iface-hub/iface-eip-fetcher/run-job.sh payment       >> /var/log/iface-eip-payment.log 2>&1
-0  8  * * *  /xxx/iface-hub/iface-eip-fetcher/run-job.sh pre_products  >> /var/log/iface-eip-pre-products.log 2>&1
-
-# 公司 B — EIP LL
-0  7  * * *  /xxx/iface-hub/iface-eip-fetcher/run-job.sh -e .env.ll order       >> /var/log/iface-eipll-order.log 2>&1
-30 7  * * *  /xxx/iface-hub/iface-eip-fetcher/run-job.sh -e .env.ll payment      >> /var/log/iface-eipll-payment.log 2>&1
-0  8  * * *  /xxx/iface-hub/iface-eip-fetcher/run-job.sh -e .env.ll pre_products >> /var/log/iface-eipll-pre-products.log 2>&1
+0  7  * * *  /xxx/iface-hub/run-job.sh -e .env.a eip order        >> /var/log/iface-a-eip-order.log 2>&1
+30 7  * * *  /xxx/iface-hub/run-job.sh -e .env.a eip payment       >> /var/log/iface-a-eip-payment.log 2>&1
+0  8  * * *  /xxx/iface-hub/run-job.sh -e .env.a eip pre_products  >> /var/log/iface-a-eip-pre-products.log 2>&1
 
 # 公司 A — RETEX POS
-30 6  * * *  /xxx/iface-hub/iface-retex-fetcher/run-job.sh daily >> /var/log/iface-retex.log 2>&1
+30 6  * * *  /xxx/iface-hub/run-job.sh -e .env.a retex daily       >> /var/log/iface-a-retex.log 2>&1
 
 # 公司 A — xdelivery
-0  6  * * *  /xxx/iface-hub/iface-xdelivery-fetcher/run-job.sh order >> /var/log/iface-xdelivery-order.log 2>&1
-0  9  * * *  /xxx/iface-hub/iface-xdelivery-fetcher/run-job.sh saas  >> /var/log/iface-xdelivery-saas.log 2>&1
+0  6  * * *  /xxx/iface-hub/run-job.sh -e .env.a xdelivery order   >> /var/log/iface-a-xdelivery-order.log 2>&1
+0  9  * * *  /xxx/iface-hub/run-job.sh -e .env.a xdelivery saas    >> /var/log/iface-a-xdelivery-saas.log 2>&1
+
+# 公司 B — EIP LL
+0  7  * * *  /xxx/iface-hub/run-job.sh -e .env.b eip order         >> /var/log/iface-b-eip-order.log 2>&1
+30 7  * * *  /xxx/iface-hub/run-job.sh -e .env.b eip payment        >> /var/log/iface-b-eip-payment.log 2>&1
+0  8  * * *  /xxx/iface-hub/run-job.sh -e .env.b eip pre_products   >> /var/log/iface-b-eip-pre-products.log 2>&1
 ```
 
 ## 手動執行 Job
 
 ```bash
-# EIP — 公司 A
-cd iface-eip-fetcher
-./run-job.sh order          # 訂單（銷貨、銷退、庫存異動）
-./run-job.sh payment        # 請款單
-./run-job.sh pre_products   # 品號申請
-./run-job.sh inventory      # 庫存異動（補跑用）
+# 語法：./run-job.sh -e <env_file> <fetcher> <job>
 
-# EIP — 公司 B（加 -e .env.ll）
-./run-job.sh -e .env.ll order
-./run-job.sh -e .env.ll payment
-./run-job.sh -e .env.ll pre_products
+# 公司 A
+./run-job.sh -e .env.a eip order          # EIP 訂單
+./run-job.sh -e .env.a eip payment        # EIP 請款單
+./run-job.sh -e .env.a eip pre_products   # EIP 品號申請
+./run-job.sh -e .env.a eip inventory      # EIP 庫存異動（補跑用）
+./run-job.sh -e .env.a retex daily        # RETEX POS 前一日全部單據
+./run-job.sh -e .env.a xdelivery order    # xdelivery 退貨（前 3 日）
+./run-job.sh -e .env.a xdelivery saas     # xdelivery SaaS 服務費
 
-# RETEX
-cd iface-retex-fetcher
-./run-job.sh daily          # 前一日全部單據
-
-# xdelivery
-cd iface-xdelivery-fetcher
-./run-job.sh order          # 退貨（前 3 日）
-./run-job.sh saas           # SaaS 服務費 / 簡訊儲值
+# 公司 B（換 -e .env.b，其餘相同）
+./run-job.sh -e .env.b eip order
+./run-job.sh -e .env.b eip payment
 ```
 
 ## EIP Fetcher 流程設定
@@ -191,17 +190,17 @@ iface-eip-fetcher/
 ```yaml
 jobs:
   order:
-    fetch:      # 呼叫哪些 EIP API、帶什麼參數
-    procedures: # 依序執行哪些 SP
-    reply:      # 各回傳 View → EIP endpoint 對應
+    fetch:            # 呼叫哪些 EIP API、帶什麼參數
+    procedures:       # 依序執行哪些 SP
+    reply:            # 各回傳 View → EIP endpoint 對應
     status_functions: # 更新哪些 function 的狀態（5→6）
 ```
 
-**新增公司 C 的步驟：**
+**新增公司 C（使用 EIP）：**
 
-1. 複製 `config/eip.yml` → `config/eipcc.yml`，修改 `module`、SP 名稱、View 名稱
-2. 複製 `.env.example` → `.env.cc`，設定 `EIP_CONFIG=config/eipcc.yml`
-3. 執行：`./run-job.sh -e .env.cc order`
+1. 複製 `iface-eip-fetcher/config/eip.yml` → `config/eipcc.yml`，修改 `module`、SP 名稱、View 名稱
+2. 複製 `.env.a.example` → `.env.c`，設定 `EIP_CONFIG=config/eipcc.yml`、`IFACE_DB_PORT=8102`
+3. 執行：`./run-job.sh -e .env.c init` + `docker compose --env-file .env.c up -d`
 
 ## iface-db API 端點
 
@@ -215,7 +214,7 @@ jobs:
 | GET | `/api/v1/iface/query/{view}` | 查詢參考資料 view |
 | GET | `/api/v1/iface/named-query/{name}` | 執行具名參數查詢 |
 
-API 文件（Swagger UI）：`http://localhost:8100/docs`
+API 文件（Swagger UI）：`http://localhost:${IFACE_DB_PORT}/docs`
 
 ### IFACE STATUS 語義
 
@@ -226,61 +225,31 @@ API 文件（Swagger UI）：`http://localhost:8100/docs`
 | `6` | complete | 匯入完成 |
 | `E` | error | 處理失敗，見 ERROR_MESSAGE |
 
-## 環境變數
-
-### iface-initdb
+## 環境變數（`.env.x` 完整清單）
 
 | 變數 | 說明 | 範例 |
 |------|------|------|
+| `COMPOSE_PROJECT_NAME` | Compose project 名稱（決定 network 與 container 命名空間） | `iface-a` |
 | `IFACE_SERVER` | MSSQL 伺服器及 instance | `192.168.101.204\INSTANCE_A` |
 | `IFACE_USER` | 資料庫帳號 | `mis` |
 | `IFACE_PWD` | 資料庫密碼 | |
 | `IFACE_DB` | 資料庫名稱 | `IFACE` |
-
-### iface-db
-
-| 變數 | 說明 | 範例 |
-|------|------|------|
-| `IFACE_SERVER` | MSSQL 伺服器及 instance | `192.168.101.204\INSTANCE_A` |
-| `IFACE_USER` | 資料庫帳號 | `mis` |
-| `IFACE_PWD` | 資料庫密碼 | |
-| `IFACE_DB` | 資料庫名稱 | `IFACE` |
-| `DB_POOL_SIZE` | 連線池大小（選用） | `5` |
-| `DB_MAX_OVERFLOW` | 最大溢位連線（選用） | `10` |
-
-### iface-eip-fetcher
-
-| 變數 | 說明 | 範例 |
-|------|------|------|
-| `CONTAINER_NAME` | Docker container 名稱 | `iface-eip-fetcher` |
-| `IMAGE_NAME` | Docker image 名稱 | `iface-eip-fetcher` |
-| `EIP_CONFIG` | YAML 設定檔路徑 | `config/eip.yml` |
-| `DB_API_URL` | iface-db 位址 | `http://iface-db:8000` |
+| `EIP_CONFIG` | EIP YAML 設定檔路徑 | `config/eip.yml` |
 | `EIP_BASE_URL` | EIP API 網址 | `https://api-eip.speeding-rocket.com` |
 | `EIP_MODULE` | IFACE 模組代碼 | `EIP` |
 | `EIP_ACCESS_KEY` | EIP 存取金鑰 | |
-
-公司 B（`.env.ll`）：`EIP_CONFIG=config/eipll.yml`、`EIP_MODULE=LLEIP`、`DB_API_URL=http://iface-db-ll:8000`
-
-### iface-retex-fetcher
-
-| 變數 | 說明 | 範例 |
-|------|------|------|
-| `DB_API_URL` | iface-db 位址 | `http://iface-db:8000` |
 | `RETEX_BASE_URL` | RETEX POS API 網址 | `http://pos.speeding-rocket.io:82` |
 | `RETEX_TOKEN` | API Token（Base64） | |
 | `RETEX_API_KEY` | AES 加密金鑰（Base64） | |
 | `RETEX_API_IV` | AES IV（Base64） | |
 | `RETEX_SALT_KEY` | SHA-512 Salt | |
-
-### iface-xdelivery-fetcher
-
-| 變數 | 說明 | 範例 |
-|------|------|------|
-| `DB_API_URL` | iface-db 位址 | `http://iface-db:8000` |
 | `XDELIVERY_ACCESS_KEY` | xdelivery 存取金鑰 | |
 | `XDELIVERY_MERCHANT_ID` | 商家 ID | `1` |
 | `XDELIVERY_MERCHANT_NAME` | 商家名稱 | `光速火箭有限公司` |
+
+不使用的 fetcher，對應變數留空即可。
+
+`IFACE_DB_PORT`（選用）：僅在需要對外開放 iface-db 時設定，搭配 `docker-compose.ports.yml` 使用。部署在同一 Host 的多公司，各自設定不重複的 port。
 
 ## 資料流程
 
@@ -329,7 +298,7 @@ Reply / Query 端點同樣限制於 `config.ALLOWED_VIEWS`，防止任意資料�
 
 ### 認證
 
-各外部 API 的認證金鑰存放於各 fetcher 的 `.env`，不寫入程式碼。
+各外部 API 的認證金鑰存放於 `.env.x`，不寫入程式碼。
 
 | 外部系統 | 認證方式 |
 |----------|----------|
@@ -366,6 +335,201 @@ WHERE ERROR_ID = 123;
 2. 在資料庫新增 `company_erp_target` 設定表
 3. `iface-db` 依公司代碼路由至 Cosmos ERP SP 或 BC OData
 4. Fetcher 容器不需異動
+
+## 新增 Fetcher 模板
+
+每個 fetcher 封裝一個外部系統的資料抓取邏輯，結構固定，可依模板快速建立。
+
+### Fetcher 職責
+
+```
+外部 API → xxx_client.py（抓取資料）
+         → iface_client.iface_import()   寫入 IFACE（STATUS=0）
+         → iface_client.run_procedure()  執行 SP，匯入 Cosmos ERP
+         → xxx_client reply（選用）       查 reply view，回寫外部系統
+         → iface_client.status_update()  STATUS 5→6
+```
+
+fetcher **不直接連接資料庫**，所有 DB 操作透過 `iface-db` HTTP API。
+`iface_client` 已封裝為共用 package，直接 `from iface_client import ...` 使用。
+
+### 目錄結構
+
+```
+iface-xxx-fetcher/
+├── Dockerfile
+├── requirements.txt          # 不含 requests（由 iface-client 管理）
+├── app/
+│   ├── main.py               # JOBS dict + argv dispatch
+│   ├── xxx_client.py         # 外部 API 呼叫邏輯
+│   └── job_a.py              # 各 job 的 run() 函式
+└── .env.example
+```
+
+### 各檔案模板
+
+**`app/main.py`**
+
+```python
+"""
+iface-xxx-fetcher 入口
+用法：python app/main.py <job>
+"""
+import sys
+import job_a
+import job_b
+
+JOBS = {
+    "job_a": job_a.run,
+    "job_b": job_b.run,
+}
+
+def main() -> None:
+    if len(sys.argv) < 2 or sys.argv[1] not in JOBS:
+        print(f"用法: python app/main.py [{' | '.join(JOBS)}]")
+        sys.exit(1)
+    job_name = sys.argv[1]
+    print(f"--- xxx fetcher: {job_name} ---")
+    JOBS[job_name]()
+    print(f"--- xxx fetcher: {job_name} 完成 ---")
+
+if __name__ == "__main__":
+    main()
+```
+
+**`app/xxx_client.py`**
+
+```python
+"""XXX API 客戶端"""
+import os
+import requests
+from iface_client import iface_import, get_reply
+
+_BASE_URL   = os.getenv("XXX_BASE_URL", "")
+_ACCESS_KEY = os.getenv("XXX_ACCESS_KEY", "")
+_MODULE     = os.getenv("XXX_MODULE", "XXX")   # IFACE.APP_MODULE 值
+
+
+def fetch_something(begin_date: str, end_date: str) -> None:
+    """抓取資料並寫入 IFACE。"""
+    url  = f"{_BASE_URL}/something.json"
+    resp = requests.get(url, params={"access_key": _ACCESS_KEY,
+                                     "begin_date": begin_date,
+                                     "end_date":   end_date}, timeout=30)
+    resp.raise_for_status()
+    data = resp.json()
+    if data.get("data"):
+        iface_import(url, data, {"begin_date": begin_date}, _MODULE, "something")
+
+
+def reply_something() -> None:
+    """查 reply view，回寫外部系統。"""
+    items = get_reply("SOMETHING_APPLY_vw")
+    for item in items:
+        url = f"{_BASE_URL}/something/{item['ID']}/ok.json"
+        requests.post(url, params={"access_key": _ACCESS_KEY,
+                                   "erp_ref_id": item["RefId"]}, timeout=30)
+```
+
+**`app/job_a.py`**
+
+```python
+"""Job A — 每日主排程"""
+from datetime import datetime, timedelta
+import xxx_client
+from iface_client import run_procedure, status_update
+
+def run() -> None:
+    begin_date = datetime.strftime(datetime.now() - timedelta(1), "%Y/%m/%d")
+    end_date   = begin_date
+
+    # 1. 抓取外部資料，寫入 IFACE
+    xxx_client.fetch_something(begin_date, end_date)
+
+    # 2. 執行 SP，匯入 Cosmos ERP
+    run_procedure("XXIF_XXX_Import")
+
+    # 3. 回寫外部系統（若有 reply）
+    xxx_client.reply_something()
+
+    # 4. 更新狀態
+    status_update("XXX", "something", "5", "6")
+```
+
+**`Dockerfile`**（build context = hub root）
+
+```dockerfile
+FROM python:3.14.3-slim-trixie
+
+WORKDIR /app
+
+COPY iface-client/ ./iface-client/
+RUN pip install --no-cache-dir ./iface-client
+
+COPY iface-xxx-fetcher/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY iface-xxx-fetcher/app/ ./app/
+```
+
+**`requirements.txt`**
+
+```
+python-dotenv==1.2.1
+# 加入外部 API 所需的套件（requests 已由 iface-client 管理，不需重複列出）
+```
+
+### 加入 docker-compose.yml
+
+在 hub-level `docker-compose.yml` 新增 service：
+
+```yaml
+iface-xxx-fetcher:
+  build:
+    context: .
+    dockerfile: iface-xxx-fetcher/Dockerfile
+  container_name: ${COMPOSE_PROJECT_NAME}-xxx-fetcher
+  environment:
+    DB_API_URL:     http://iface-db:8000
+    XXX_BASE_URL:   ${XXX_BASE_URL}
+    XXX_MODULE:     ${XXX_MODULE:-XXX}
+    XXX_ACCESS_KEY: ${XXX_ACCESS_KEY}
+  restart: "no"
+  profiles: [xxx]
+```
+
+### 加入 .env.x
+
+```bash
+# ── XXX 外部系統 ──────────────────────────────────────────────
+XXX_BASE_URL=https://api.xxx.example.com
+XXX_MODULE=XXX
+XXX_ACCESS_KEY=your_access_key
+```
+
+### 加入 run-job.sh 的 crontab
+
+```cron
+0 8 * * *  /xxx/iface-hub/run-job.sh -e .env.a xxx job_a >> /var/log/iface-a-xxx-job_a.log 2>&1
+```
+
+### iface-db SP 白名單
+
+新的 SP 需加入 `iface-db` 白名單才能被呼叫：
+
+```python
+# iface-db/app/core/config.py → ALLOWED_PROCEDURES
+"XXIF_XXX_Import",
+```
+
+reply view 同樣需加入 `ALLOWED_VIEWS`：
+
+```python
+# iface-db/app/core/config.py → ALLOWED_VIEWS
+"SOMETHING_APPLY_vw",
+```
+
+---
 
 ## 相關專案
 
