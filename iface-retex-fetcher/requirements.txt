@@ -1,2 +1,2 @@
-python-dotenv==1.2.1
+python-dotenv==1.2.2
 pycryptodome==3.23.0
