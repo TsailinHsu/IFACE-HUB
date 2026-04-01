@@ -27,19 +27,22 @@ def update_status(
       '5' → '6'  SP 執行完成後標記為完成
       '5' → 'E'  SP 執行失敗後標記為錯誤
     """
+    set_processed = payload.status_to in ("6", "E")
     sql = text("""
         UPDATE IFACE
-        SET STATUS = :status_to
+        SET STATUS         = :status_to,
+            PROCESSED_DATE = CASE WHEN :set_processed = 1 THEN SYSUTCDATETIME() ELSE PROCESSED_DATE END
         WHERE APP_MODULE   = :module
           AND APP_FUNCTION = :function
           AND STATUS       = :status_from
     """)
 
     params = {
-        "status_to":   payload.status_to,
-        "module":      payload.module,
-        "function":    payload.function,
-        "status_from": payload.status_from,
+        "status_to":     payload.status_to,
+        "set_processed": 1 if set_processed else 0,
+        "module":        payload.module,
+        "function":      payload.function,
+        "status_from":   payload.status_from,
     }
 
     try:
