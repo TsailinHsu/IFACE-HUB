@@ -98,6 +98,8 @@ cp .env.b.example .env.b && vim .env.b   # 公司 B
 ./run-job.sh -e .env.b init   # 公司 B
 ```
 
+完成後 `iface-initdb` image 會自動移除（一次性任務，不需保留）。
+
 ### 3. 啟動 iface-db
 
 ```bash
@@ -220,9 +222,9 @@ API 文件（Swagger UI）：`http://localhost:${IFACE_DB_PORT}/docs`
 
 | 值 | 狀態 | 說明 |
 |----|------|------|
-| `0` | pending | 資料寫入，等待處理 |
+| `0` | pending | 資料寫入，等待 SP 處理 |
 | `5` | processing | SP 執行中 |
-| `6` | complete | 匯入完成 |
+| `6` | complete | 匯入完成；或無資料需匯入（直接標記，不經 SP） |
 | `E` | error | 處理失敗，見 ERROR_MESSAGE |
 
 ## 環境變數（`.env.x` 完整清單）
@@ -257,18 +259,21 @@ API 文件（Swagger UI）：`http://localhost:${IFACE_DB_PORT}/docs`
 
 ```
 EIP API → eip_client（分頁抓取）
-        → iface_client.iface_import()    寫入 IFACE（STATUS=0）
-        → iface_client.run_procedure()   執行 SP（由 YAML 設定）
-        → eip_client.reply()             查 reply view → POST EIP /ok.json
-        → iface_client.status_update()   STATUS 5→6
+        → 有資料：iface_client.iface_import()    寫入 IFACE（STATUS=0）
+                  iface_client.run_procedure()   執行 SP（由 YAML 設定）
+                  eip_client.reply()             查 reply view → POST EIP /ok.json
+                  iface_client.status_update()   STATUS 5→6
+        → 無資料：iface_client.iface_import()    寫入 IFACE（STATUS=6，直接完成）
 ```
 
 ### RETEX POS 每日排程
 
 ```
 1. iface_client.query_view("XX_DATASTAMP")   取得最新 DataStamp
-2. retex_client.query_docs()                 查詢各單據類型 → 寫入 IFACE
-3. retex_client.query_sales()                查詢銷貨 SO → 寫入 IFACE
+2. retex_client.query_docs()                 查詢各單據類型
+     → ResultNo=00：寫入 IFACE（STATUS=0）
+     → 無資料：    寫入 IFACE（STATUS=6，直接完成）
+3. retex_client.query_sales()                查詢銷貨 SO（同上）
 4. iface_client.run_procedure(XXIF_RETEX_*)  各類型匯入 Cosmos ERP
 5. iface_client.named_query("RETEX_CM_GET_ORDERS")  查詢 CM 採購單
    retex_client.doc_update()                回傳 POS ErpDocUpdate
@@ -278,7 +283,9 @@ EIP API → eip_client（分頁抓取）
 ### xdelivery SaaS
 
 ```
-xdelivery_client.saas()         抓取服務費 / 儲值 → 寫入 IFACE
+xdelivery_client.saas()         抓取服務費 / 儲值
+  → 有資料：寫入 IFACE（STATUS=0）
+  → 無資料：寫入 IFACE（STATUS=6，直接完成）
 iface_client.run_procedure()    XXIF_COPTG_SaaS_Import → Cosmos ERP
 xdelivery_client.saas_reply()   查 COPTG_SaaS_APPLY_vw → POST /ok.json
 ```
@@ -344,10 +351,11 @@ WHERE ERROR_ID = 123;
 
 ```
 外部 API → xxx_client.py（抓取資料）
-         → iface_client.iface_import()   寫入 IFACE（STATUS=0）
-         → iface_client.run_procedure()  執行 SP，匯入 Cosmos ERP
-         → xxx_client reply（選用）       查 reply view，回寫外部系統
-         → iface_client.status_update()  STATUS 5→6
+         → 有資料：iface_client.iface_import()   寫入 IFACE（STATUS=0）
+                   iface_client.run_procedure()  執行 SP，匯入 Cosmos ERP
+                   xxx_client reply（選用）       查 reply view，回寫外部系統
+                   iface_client.status_update()  STATUS 5→6
+         → 無資料：iface_client.iface_import()   寫入 IFACE（STATUS=6，直接完成）
 ```
 
 fetcher **不直接連接資料庫**，所有 DB 操作透過 `iface-db` HTTP API。
@@ -411,7 +419,7 @@ _MODULE     = os.getenv("XXX_MODULE", "XXX")   # IFACE.APP_MODULE 值
 
 
 def fetch_something(begin_date: str, end_date: str) -> None:
-    """抓取資料並寫入 IFACE。"""
+    """抓取資料並寫入 IFACE，無資料時以 STATUS='6' 標記已完成。"""
     url  = f"{_BASE_URL}/something.json"
     resp = requests.get(url, params={"access_key": _ACCESS_KEY,
                                      "begin_date": begin_date,
@@ -420,6 +428,8 @@ def fetch_something(begin_date: str, end_date: str) -> None:
     data = resp.json()
     if data.get("data"):
         iface_import(url, data, {"begin_date": begin_date}, _MODULE, "something")
+    else:
+        iface_import(url, data, {"begin_date": begin_date}, _MODULE, "something", initial_status="6")
 
 
 def reply_something() -> None:
@@ -495,6 +505,9 @@ iface-xxx-fetcher:
     XXX_MODULE:     ${XXX_MODULE:-XXX}
     XXX_ACCESS_KEY: ${XXX_ACCESS_KEY}
   restart: "no"
+  depends_on:
+    iface-db:
+      condition: service_healthy
   profiles: [xxx]
 ```
 
