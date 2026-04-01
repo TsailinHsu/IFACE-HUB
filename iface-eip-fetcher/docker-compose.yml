@@ -18,6 +18,7 @@ services:
 networks:
   iface-net:
     external: true
+    name: ${COMPOSE_PROJECT_NAME}_default
 
 # 多公司部署：
 #   每家公司準備獨立的 .env.<company>，設定各自的：

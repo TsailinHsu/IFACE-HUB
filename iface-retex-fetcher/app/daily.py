@@ -61,10 +61,6 @@ def run() -> None:
     result = retex_client.doc_update(erp_orders)
     print("ErpDocUpdate (一般):", result)
 
-    erp_orders_a000 = named_query("RETEX_CM_A000_GET_ORDERS")
-    result_a000 = retex_client.doc_update(erp_orders_a000)
-    print("ErpDocUpdate (A000):", result_a000)
-
     # --- 更新 DataStamp ---
     run_procedure("XX_UPDATE_DATASTAMP")
 

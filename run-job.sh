@@ -55,6 +55,7 @@ cd "$SCRIPT_DIR"
 
 if [ "$FETCHER" = "init" ]; then
     docker compose --env-file "$ENV_FILE" --profile init run --build --rm iface-initdb
+    docker compose --env-file "$ENV_FILE" --profile init down --rmi local
     exit 0
 fi
 
@@ -67,5 +68,6 @@ fi
 SERVICE="iface-${FETCHER}-fetcher"
 PROFILE="$FETCHER"
 
+docker compose --env-file "$ENV_FILE" up -d iface-db
 docker compose --env-file "$ENV_FILE" --profile "$PROFILE" \
     run --rm "$SERVICE" python app/main.py "$JOB"

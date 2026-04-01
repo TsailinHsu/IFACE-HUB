@@ -47,12 +47,14 @@ def _fetch_all(api_url: str, query: dict) -> dict:
 
 
 def _api_call(endpoint: str, query: dict, function: str) -> None:
-    """抓取資料並寫入 IFACE（有資料才寫入）。"""
+    """抓取資料並寫入 IFACE，無資料時以 STATUS='6' 標記已完成。"""
     api_url  = f"{_BASE_URL}{endpoint}"
     response = _fetch_all(api_url, query)
 
     if response["data"]:
         iface_import(api_url, response, query, _MODULE, function)
+    else:
+        iface_import(api_url, response, query, _MODULE, function, initial_status="6")
 
 
 # ---------------------------------------------------------------------------

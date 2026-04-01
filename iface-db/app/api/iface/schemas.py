@@ -7,12 +7,20 @@ class TransactionCreate(BaseModel):
     對應 ifaceUtil.ifaceImport() 的參數。
     json_doc 接受 dict 或 list，寫入前序列化為 JSON 字串。
     """
-    api_url:  str
-    json_doc: dict | list
-    query:    dict | list | None = None
-    module:   str
-    function: str
-    merchant: dict | list | None = None
+    api_url:        str
+    json_doc:       dict | list
+    query:          dict | list | None = None
+    module:         str
+    function:       str
+    merchant:       dict | list | None = None
+    initial_status: str = "0"
+
+    @field_validator("initial_status")
+    @classmethod
+    def single_char(cls, v: str) -> str:
+        if len(v) != 1:
+            raise ValueError("initial_status 必須為單一字元")
+        return v
 
 
 class TransactionResponse(BaseModel):

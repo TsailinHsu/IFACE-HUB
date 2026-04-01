@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime
 from typing import Annotated
 
@@ -8,6 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.api.iface.deps import get_db
 from app.api.iface.schemas import TransactionCreate, TransactionResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -36,7 +39,7 @@ def create_transaction(
     sql = text("""
         INSERT INTO IFACE
             (BATCH_ID, CREATION_DATE, API, APP_MODULE, APP_FUNCTION,
-             STATUS, JSON_DOC, QUERY, MERCHANT)
+             STATUS, JSON_DOC, QUERY_PARAMS, MERCHANT)
         VALUES
             (:batch_id, :creation_date, :api, :module, :function,
              :status, :json_doc, :query, :merchant)
@@ -48,7 +51,7 @@ def create_transaction(
         "api":           payload.api_url,
         "module":        payload.module,
         "function":      payload.function,
-        "status":        "0",
+        "status":        payload.initial_status,
         "json_doc":      json.dumps(payload.json_doc, ensure_ascii=False),
         "query":         json.dumps(payload.query,    ensure_ascii=False) if payload.query    is not None else None,
         "merchant":      json.dumps(payload.merchant, ensure_ascii=False) if payload.merchant is not None else None,
@@ -59,6 +62,7 @@ def create_transaction(
         db.commit()
     except Exception as e:
         db.rollback()
+        logger.exception("寫入 IFACE 失敗")
         raise HTTPException(status_code=500, detail=f"寫入 IFACE 失敗: {e}") from e
 
     return TransactionResponse(status="success", batch_id=batch_id)

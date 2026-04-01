@@ -12,18 +12,22 @@ _TIMEOUT_LONG  = 120  # SP 執行（部分 SP 處理量大）
 
 
 def iface_import(api_url: str, json_doc: dict | list, query: dict | None,
-                 module: str, function: str, merchant: dict | None = None) -> str:
+                 module: str, function: str, merchant: dict | None = None,
+                 initial_status: str = "0") -> str:
     """
     寫入 IFACE 資料，回傳 BATCH_ID。
     對應 ifaceUtil.ifaceImport()。
+    initial_status: 初始 STATUS 值，預設 '0'（待 SP 處理）；
+                    無需匯入 ERP 時可傳 '6'（已完成）。
     """
     payload = {
-        "api_url":  api_url,
-        "json_doc": json_doc,
-        "query":    query or {},
-        "module":   module,
-        "function": function,
-        "merchant": merchant or {},
+        "api_url":        api_url,
+        "json_doc":       json_doc,
+        "query":          query or {},
+        "module":         module,
+        "function":       function,
+        "merchant":       merchant or {},
+        "initial_status": initial_status,
     }
     resp = requests.post(
         f"{_BASE_URL}/api/v1/iface/transactions/",

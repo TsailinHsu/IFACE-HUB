@@ -61,6 +61,9 @@ services:
       EIP_MODULE:     ${EIP_MODULE:-EIP}
       EIP_ACCESS_KEY: ${EIP_ACCESS_KEY}
     restart: "no"
+    depends_on:
+      iface-db:
+        condition: service_healthy
     profiles: [eip]
 
   # ── RETEX Fetcher (on-demand) ────────────────────────────────
@@ -77,6 +80,9 @@ services:
       RETEX_API_IV:   ${RETEX_API_IV}
       RETEX_SALT_KEY: ${RETEX_SALT_KEY}
     restart: "no"
+    depends_on:
+      iface-db:
+        condition: service_healthy
     profiles: [retex]
 
   # ── xdelivery Fetcher (on-demand) ───────────────────────────
@@ -91,4 +97,7 @@ services:
       XDELIVERY_MERCHANT_ID:   ${XDELIVERY_MERCHANT_ID}
       XDELIVERY_MERCHANT_NAME: ${XDELIVERY_MERCHANT_NAME}
     restart: "no"
+    depends_on:
+      iface-db:
+        condition: service_healthy
     profiles: [xdelivery]

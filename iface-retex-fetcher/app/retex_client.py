@@ -53,10 +53,14 @@ def _call_api(api_url: str, request_data: dict) -> dict:
 
 
 def _query_and_import(api_url: str, request_data: dict, doc_type: str) -> None:
-    """查詢 RETEX API 並將結果寫入 IFACE。"""
+    """查詢 RETEX API 並將結果寫入 IFACE。
+    無論有無資料皆寫入，ResultNo != '00' 時以 STATUS='6' 標記已完成（不需匯入 ERP）。
+    """
     json_data = _call_api(api_url, request_data)
     if json_data.get("ResultNo") == "00":
         iface_import(api_url, json_data, request_data, "RETEX", doc_type)
+    else:
+        iface_import(api_url, json_data, request_data, "RETEX", doc_type, initial_status="6")
 
 
 # ---------------------------------------------------------------------------

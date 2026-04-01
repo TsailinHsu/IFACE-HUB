@@ -48,12 +48,14 @@ def _fetch_all(api_url: str, query: dict, module: str, function: str) -> None:
         if curr_page > page_count:
             break
 
+    merchants = {
+        "merchants_id":    _MERCHANT_ID,
+        "merchants_title": _MERCHANT_NAME,
+    }
     if all_data:
-        merchants = {
-            "merchants_id":    _MERCHANT_ID,
-            "merchants_title": _MERCHANT_NAME,
-        }
         iface_import(api_url, {"data": all_data}, query, module, function, merchants)
+    else:
+        iface_import(api_url, {"data": []}, query, module, function, merchants, initial_status="6")
 
 
 # ---------------------------------------------------------------------------
@@ -124,6 +126,8 @@ def saas(status_code: str, invoice_status: str) -> None:
 
         if all_data:
             iface_import(url, {"data": all_data}, query, "COPTG", "SaaS", merchants)
+        else:
+            iface_import(url, {"data": []}, query, "COPTG", "SaaS", merchants, initial_status="6")
 
 
 # ---------------------------------------------------------------------------

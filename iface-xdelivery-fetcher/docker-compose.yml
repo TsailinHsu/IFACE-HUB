@@ -14,3 +14,4 @@ services:
 networks:
   iface-net:
     external: true
+    name: ${COMPOSE_PROJECT_NAME}_default
