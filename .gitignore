@@ -1,6 +1,7 @@
 # 環境變數（含機敏資訊，不進版控）
 .env
-!.env.example
+.env.sr
+.env.ll
 
 # Python
 __pycache__/

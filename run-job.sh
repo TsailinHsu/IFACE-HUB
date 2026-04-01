@@ -54,7 +54,7 @@ fi
 cd "$SCRIPT_DIR"
 
 if [ "$FETCHER" = "init" ]; then
-    docker compose --env-file "$ENV_FILE" --profile init run --rm iface-initdb
+    docker compose --env-file "$ENV_FILE" --profile init run --build --rm iface-initdb
     exit 0
 fi
 

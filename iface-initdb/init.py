@@ -48,7 +48,8 @@ def execute_sql_file(conn: pymssql.Connection, filepath: str) -> None:
     cursor = conn.cursor()
     for batch in batches:
         batch = batch.strip()
-        if batch and not batch.startswith("--"):
+        sql_lines = [l for l in batch.splitlines() if not l.strip().startswith("--")]
+        if any(l.strip() for l in sql_lines):
             cursor.execute(batch)
     conn.commit()
     cursor.close()
