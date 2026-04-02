@@ -31,15 +31,15 @@ jobs:
       - type: inventory_change
 
     procedures:
-      - XXIF_COPTG_LL_Import
-      - XXIF_COPTI_LL_Import
-      - XXIF_INVTA_LL_Import
+      - XXIF_COPTG_Import
+      - XXIF_COPTI_Import
+      - XXIF_INVTA_Import
 
     reply:
       - endpoint: /orders/
-        view: COPTG_LL_ORDER_APPLY_vw
+        view: COPTG_ORDER_APPLY_vw
       - endpoint: /order_returns/
-        view: COPTI_LL_APPLY_vw
+        view: COPTI_APPLY_vw
       # 以下 view 目前無 LL 專屬版本，沿用 EIP view
       - endpoint: /order_rejects/
         view: COPTI_EIP_Reject_APPLY_vw
@@ -77,11 +77,11 @@ jobs:
       - type: payment_request
 
     procedures:
-      - XXIF_ACPTA_LL_Import
+      - XXIF_ACPTA_Import
 
     reply:
       - endpoint: /payment_requests/
-        view: ACPTA_LL_APPLY_vw
+        view: ACPTA_APPLY_vw
 
     status_functions:
       - 請款單
@@ -94,11 +94,11 @@ jobs:
       - type: pre_products
 
     procedures:
-      - XXIF_INVMB_LL_Import
+      - XXIF_INVMB_Import
 
     reply:
       - endpoint: /pre_products/
-        view: INVMB_LL_APPLY_vw
+        view: INVMB_APPLY_vw
 
     status_functions:
       - preProducts

@@ -1,0 +1,18 @@
+USE [IFACE_LL]
+GO
+
+/*
+ 	EIP 與 ERP 系統部門對應表
+*/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[XX_EIP_DEPARTMENT](
+	[COMPANY_CODE]      [nvarchar](10) NULL,
+	[EIP_DEPARTMENT]    [nvarchar](255) NULL,
+	[DEPARTMENT]        [nvarchar](255) NULL
+) ON [PRIMARY]
+GO
