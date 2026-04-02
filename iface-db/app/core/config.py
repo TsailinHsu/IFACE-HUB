@@ -29,24 +29,16 @@ class Settings(BaseSettings):
     # 新增 SP 時，在此列表加入名稱
     # ---------------------------------------------------------------
     ALLOWED_PROCEDURES: frozenset[str] = frozenset({
-        # EIP — 公司 A：訂單
+        # EIP
         "XXIF_COPTG_EIP_Import",           # 銷貨（含 return_change, repost, requisit）
         "XXIF_COPTI_EIP_Import",           # 銷退（含 orderReject, orderProblem）
         "XXIF_INVTA_EIP_Import",           # 庫存異動（含 transfers, inventoryChange）
-        # EIP — 公司 A：品號
-        "XXIF_INVMB_Import",               # 品號基本資料
         "XXIF_INVMB_EIP_INCORRECT",        # 品號不一致修正
-        # EIP — 公司 A：請款
+        "XXIF_INVMB_Import",               # 品號基本資料
         "XXIF_ACPTA_Import",               # 請款單
-        # EIP — 公司 A：xdelivery SaaS
+        # xdelivery
         "XXIF_COPTG_SaaS_Import",          # xdelivery SaaS 費用
-        # EIP LL — 公司 B
-        "XXIF_COPTG_LL_Import",
-        "XXIF_COPTI_LL_Import",
-        "XXIF_INVTA_LL_Import",
-        "XXIF_INVMB_LL_Import",
-        "XXIF_ACPTA_LL_Import",
-        # RETEX — 公司 A
+        # RETEX 
         "XXIF_RETEX_SO_Import",            # 銷售訂單
         "XXIF_RETEX_BO_Import",            # 進貨退回
         "XXIF_RETEX_CM_Import",            # 調貨單
@@ -55,9 +47,6 @@ class Settings(BaseSettings):
         "XXIF_RETEX_MO_Import",            # 移倉出
         "XXIF_RETEX_ME_Import",            # 庫存調整
         "XX_UPDATE_DATASTAMP",             # 更新 DataStamp 高水位
-        # xdelivery — 公司 A
-        "XXIF_COPTG_Import",               # xdelivery 銷貨
-        "XXIF_COPTI_Import",               # xdelivery 銷退
     })
 
     # ---------------------------------------------------------------
@@ -77,19 +66,19 @@ class Settings(BaseSettings):
         # EIP reply views — 請款 & 品號
         "ACPTA_EIP_APPLY_vw",              # 請款單回傳
         "INVMB_EIP_APPLY_vw",              # 品號申請回傳
-        # EIP LL reply views
-        "COPTG_LL_ORDER_APPLY_vw",
-        "COPTI_LL_APPLY_vw",
-        "ACPTA_LL_APPLY_vw",
-        "INVMB_LL_APPLY_vw",
         # RETEX query views
         "XX_DATASTAMP",                    # RETEX DataStamp 高水位查詢
         # xdelivery reply views
-        "COPTG_XDELIVERY_APPLY_vw",
-        "COPTI_XDELIVERY_APPLY_vw",
         "COPTG_SaaS_APPLY_vw",             # SaaS 服務費 / 簡訊儲值回傳
     })
 
+
+    # ---------------------------------------------------------------
+    # SP Query 白名單：執行並回傳結果集的 SP（非純寫入用途）
+    # ---------------------------------------------------------------
+    ALLOWED_SP_QUERIES: dict = {
+        "XXIF_RETEX_CM_AX_QUERY": {"database": "IFACE_SR"},
+    }
 
     # ---------------------------------------------------------------
     # Named queries：需要帶參數查詢 MSSQL 且非 View 的情境

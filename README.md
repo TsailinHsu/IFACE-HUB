@@ -12,6 +12,7 @@ EIP LL API       ──HTTP──▶   └─ /api/v1/iface/*    ──SP──�
 RETEX POS API    ──HTTP──▶       transactions               Stored Procedures
 xdelivery API    ──HTTP──▶       status-update
 Super Landing    ──HTTP──▶       sp/{name}
+                                 sp-query/{name}
                                  reply/{view}
                                  query/{view}
                                  named-query/{name}
@@ -42,7 +43,7 @@ iface-hub/
 │   └── config/
 │       ├── eip.yml                 公司 A 流程設定（MODULE=EIP）
 │       └── eipll.yml               公司 B 流程設定（MODULE=LLEIP）
-├── iface-retex-fetcher/            RETEX POS 系統
+├── iface-retex-fetcher/            RETEX POS 系統（daily / cm_query）
 ├── iface-xdelivery-fetcher/        xdelivery 物流 / Super Landing
 └── iface-client/                   共用 iface-db HTTP client（Python package）
 ```
@@ -140,6 +141,7 @@ crontab -e
 
 # 公司 A — RETEX POS
 30 6  * * *  /xxx/iface-hub/run-job.sh -e .env.a retex daily       >> /var/log/iface-a-retex.log 2>&1
+0  9  * * *  /xxx/iface-hub/run-job.sh -e .env.a retex cm_query    >> /var/log/iface-a-retex-cm.log 2>&1
 
 # 公司 A — xdelivery
 0  6  * * *  /xxx/iface-hub/run-job.sh -e .env.a xdelivery order   >> /var/log/iface-a-xdelivery-order.log 2>&1
@@ -162,6 +164,7 @@ crontab -e
 ./run-job.sh -e .env.a eip pre_products   # EIP 品號申請
 ./run-job.sh -e .env.a eip inventory      # EIP 庫存異動（補跑用）
 ./run-job.sh -e .env.a retex daily        # RETEX POS 前一日全部單據
+./run-job.sh -e .env.a retex cm_query     # RETEX CM 採購單匯出 XLS（輸出至 CM_QUERY_OUTPUT_DIR）
 ./run-job.sh -e .env.a xdelivery order    # xdelivery 退貨（前 3 日）
 ./run-job.sh -e .env.a xdelivery saas     # xdelivery SaaS 服務費
 
@@ -211,7 +214,8 @@ jobs:
 | GET | `/health` | 服務健康狀態 |
 | POST | `/api/v1/iface/transactions/` | 寫入外部 API 資料至 IFACE |
 | POST | `/api/v1/iface/status-update/` | 更新 IFACE 資料狀態 |
-| POST | `/api/v1/iface/sp/{name}` | 執行 Stored Procedure（白名單） |
+| POST | `/api/v1/iface/sp/{name}` | 執行 Stored Procedure（白名單，不回傳結果集） |
+| POST | `/api/v1/iface/sp-query/{name}` | 執行 SP 並回傳結果集（`ALLOWED_SP_QUERIES` 白名單） |
 | GET | `/api/v1/iface/reply/{view}` | 查詢 reply view（回寫外部 API 用） |
 | GET | `/api/v1/iface/query/{view}` | 查詢參考資料 view |
 | GET | `/api/v1/iface/named-query/{name}` | 執行具名參數查詢 |
@@ -248,6 +252,7 @@ API 文件（Swagger UI）：`http://localhost:${IFACE_DB_PORT}/docs`
 | `XDELIVERY_ACCESS_KEY` | xdelivery 存取金鑰 | |
 | `XDELIVERY_MERCHANT_ID` | 商家 ID | `1` |
 | `XDELIVERY_MERCHANT_NAME` | 商家名稱 | `光速火箭有限公司` |
+| `CM_QUERY_OUTPUT_DIR` | RETEX CM XLS 輸出目錄（Host 路徑，掛載至 container `/output`） | `./output/retex_CM_xls` |
 
 不使用的 fetcher，對應變數留空即可。
 
@@ -266,7 +271,7 @@ EIP API → eip_client（分頁抓取）
         → 無資料：iface_client.iface_import()    寫入 IFACE（STATUS=6，直接完成）
 ```
 
-### RETEX POS 每日排程
+### RETEX POS 每日排程（`daily`）
 
 ```
 1. iface_client.query_view("XX_DATASTAMP")   取得最新 DataStamp
@@ -278,6 +283,25 @@ EIP API → eip_client（分頁抓取）
 5. iface_client.named_query("RETEX_CM_GET_ORDERS")  查詢 CM 採購單
    retex_client.doc_update()                回傳 POS ErpDocUpdate
 6. iface_client.run_procedure("XX_UPDATE_DATASTAMP") 更新高水位
+```
+
+### RETEX CM 採購單匯出（`cm_query`）
+
+依 25 個門市組合逐一呼叫 `XXIF_RETEX_CM_AX_QUERY`，將結果輸出為 `.xls` 檔案。
+
+```
+for (DenNo, ShopNo) in task_list:
+    iface_client.sp_query("XXIF_RETEX_CM_AX_QUERY", {ShopNo, DenNo})
+      → 有資料：寫出 YYYYMMDD_DenNo_ShopNo.xls 至 CM_QUERY_OUTPUT_DIR（預設 /output）
+      → 無資料：略過
+```
+
+輸出目錄透過 volume mount 寫到 Host，不保留在 container 內：
+
+```yaml
+# docker-compose.yml
+volumes:
+  - ${CM_QUERY_OUTPUT_DIR:-./output/retex_CM_xls}:/output
 ```
 
 ### xdelivery SaaS
@@ -298,6 +322,17 @@ xdelivery_client.saas_reply()   查 COPTG_SaaS_APPLY_vw → POST /ok.json
 任何不在白名單的名稱將回傳 `403 Forbidden`。
 
 新增 SP 時，在 [iface-db/app/core/config.py](iface-db/app/core/config.py) 的 `ALLOWED_PROCEDURES` 加入名稱。
+
+### SP Query 白名單
+
+`sp-query` 端點（回傳結果集）使用獨立的 `ALLOWED_SP_QUERIES` 白名單，
+每筆設定包含 SP 名稱與目標資料庫：
+
+```python
+ALLOWED_SP_QUERIES: dict = {
+    "XXIF_RETEX_CM_AX_QUERY": {"database": "IFACE_SR"},
+}
+```
 
 ### View 白名單
 

@@ -8,9 +8,11 @@ job:
 
 import sys
 import daily
+import cm_query
 
 JOBS = {
-    "daily": daily.run,
+    "daily":    daily.run,
+    "cm_query": cm_query.run,
 }
 
 

@@ -7,7 +7,7 @@
 #
 # fetcher:
 #   eip        iface-eip-fetcher（order / payment / pre_products / inventory）
-#   retex      iface-retex-fetcher（daily）
+#   retex      iface-retex-fetcher（daily / cm_query）
 #   xdelivery  iface-xdelivery-fetcher（order / saas）
 #
 # 範例：
@@ -15,6 +15,7 @@
 #   ./run-job.sh -e .env.a eip payment
 #   ./run-job.sh -e .env.b eip order        # 公司 B
 #   ./run-job.sh -e .env.a retex daily
+#   ./run-job.sh -e .env.a retex cm_query
 #   ./run-job.sh -e .env.a xdelivery saas
 #
 # 初始化資料庫（首次部署）：

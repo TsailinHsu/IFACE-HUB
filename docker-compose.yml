@@ -73,12 +73,15 @@ services:
       dockerfile: iface-retex-fetcher/Dockerfile
     container_name: ${COMPOSE_PROJECT_NAME}-retex-fetcher
     environment:
-      DB_API_URL:     http://iface-db:8000
-      RETEX_BASE_URL: ${RETEX_BASE_URL}
-      RETEX_TOKEN:    ${RETEX_TOKEN}
-      RETEX_API_KEY:  ${RETEX_API_KEY}
-      RETEX_API_IV:   ${RETEX_API_IV}
-      RETEX_SALT_KEY: ${RETEX_SALT_KEY}
+      DB_API_URL:            http://iface-db:8000
+      RETEX_BASE_URL:        ${RETEX_BASE_URL}
+      RETEX_TOKEN:           ${RETEX_TOKEN}
+      RETEX_API_KEY:         ${RETEX_API_KEY}
+      RETEX_API_IV:          ${RETEX_API_IV}
+      RETEX_SALT_KEY:        ${RETEX_SALT_KEY}
+      CM_QUERY_OUTPUT_DIR:   /output
+    volumes:
+      - ${CM_QUERY_OUTPUT_DIR:-./output/retex_CM_xls}:/output
     restart: "no"
     depends_on:
       iface-db:

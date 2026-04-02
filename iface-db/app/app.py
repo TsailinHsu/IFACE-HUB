@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import dispose_engine
-from app.api.iface.routes import transactions, status_update, procedures, reply, query, named_query
+from app.api.iface.routes import transactions, status_update, procedures, reply, query, named_query, sp_query
 
 
 @asynccontextmanager
@@ -58,6 +58,11 @@ app.include_router(
     named_query.router,
     prefix="/api/v1/iface/named-query",
     tags=["named-query"],
+)
+app.include_router(
+    sp_query.router,
+    prefix="/api/v1/iface/sp-query",
+    tags=["sp-query"],
 )
 
 

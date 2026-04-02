@@ -1,5 +1,5 @@
 #!/bin/bash
-VALID_JOBS=("daily")
+VALID_JOBS=("daily" "cm_query")
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ -z "$1" ]; then

@@ -70,3 +70,10 @@ class ProcedureResponse(BaseModel):
 class QueryResponse(BaseModel):
     status: str
     data:   Any
+
+
+class SpQueryRequest(BaseModel):
+    """
+    SP Query 端點的參數：僅需 SP 的具名參數（選用）。
+    """
+    params: dict[str, Any] | None = None

@@ -101,6 +101,21 @@ def named_query(query_name: str, **kwargs) -> dict:
     return resp.json().get("data", {})
 
 
+def sp_query(procedure_name: str, params: dict | None = None) -> list:
+    """
+    執行 SP 並回傳結果集（list of dict）。
+    適用於查詢型 SP（如 XXIF_RETEX_CM_AX_QUERY）。
+    """
+    payload = {"params": params or {}}
+    resp = requests.post(
+        f"{_BASE_URL}/api/v1/iface/sp-query/{procedure_name}",
+        json=payload,
+        timeout=_TIMEOUT_LONG,
+    )
+    resp.raise_for_status()
+    return resp.json().get("data", [])
+
+
 def query_view(view_name: str, module: str | None = None,
                function: str | None = None) -> list:
     """
