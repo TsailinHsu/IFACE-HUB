@@ -10,7 +10,7 @@ from datetime import datetime, date
 
 import xlwt
 
-from iface_client import sp_query
+from iface_client import run_procedure, sp_query
 
 _OUTPUT_DIR = os.getenv("CM_QUERY_OUTPUT_DIR", "/output")
 
@@ -95,3 +95,6 @@ def run() -> None:
         except Exception as e:
             print(f"❌  發生錯誤（{filename}）：{e}")
             continue
+
+    run_procedure("XXIF_RETEX_CM_A000_Import")
+    print("✅  CM A000/A118 歷史記錄完成")

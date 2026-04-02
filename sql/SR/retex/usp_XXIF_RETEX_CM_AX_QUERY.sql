@@ -44,7 +44,7 @@ WITH XX_DOC_HEADERS AS (
 		AmtTot,
 		DataStamp,
 		DocDetial
-	FROM IFACE.dbo.IFACE 
+	FROM IFACE 
 		CROSS APPLY
 		OPENJSON (JSON_DOC, '$.DocData') WITH (
 			DocNo			NVARCHAR(100)	'$.DocNo',
