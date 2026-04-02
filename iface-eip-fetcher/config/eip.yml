@@ -103,6 +103,19 @@ jobs:
       - preProducts
 
   # ----------------------------------------------------------
+  # product_incorrects：料號基本資料不一致修正
+  # ----------------------------------------------------------
+  product_incorrects:
+    fetch:
+      - type: product_incorrects
+
+    procedures:
+      - XXIF_INVMB_EIP_INCORRECT
+
+    status_functions:
+      - INVINC
+
+  # ----------------------------------------------------------
   # inventory：庫存異動（單獨補跑用）
   # 注意：order job 已包含完整庫存異動流程
   # ----------------------------------------------------------

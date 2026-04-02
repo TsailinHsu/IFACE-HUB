@@ -41,6 +41,8 @@ def _run_fetch(step: dict) -> None:
         eip_client.payment_request(0)
     elif t == "pre_products":
         eip_client.pre_products(0)
+    elif t == "product_incorrects":
+        eip_client.product_incorrects()
     else:
         raise ValueError(f"Unknown fetch type: '{t}'")
 

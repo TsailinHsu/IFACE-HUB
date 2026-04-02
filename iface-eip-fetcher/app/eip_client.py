@@ -138,6 +138,13 @@ def price_change(begin_date: str, end_date: str, field_type: str) -> None:
     }, "priceChange")
 
 
+def product_incorrects() -> None:
+    """取得料號基本資料不一致"""
+    _api_call("/products/incorrects.json", {
+        "access_key": _ACCESS_KEY,
+    }, "INVINC")
+
+
 # ---------------------------------------------------------------------------
 # Reply：回寫 ERP 單號至 EIP
 # endpoint 與 view_name 由 pipeline 從 YAML 傳入，此處不硬編碼
