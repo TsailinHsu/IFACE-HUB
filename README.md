@@ -137,7 +137,8 @@ crontab -e
 # 公司 A — EIP
 0  7  * * *  /xxx/iface-hub/run-job.sh -e .env.a eip order        >> /var/log/iface-a-eip-order.log 2>&1
 30 7  * * *  /xxx/iface-hub/run-job.sh -e .env.a eip payment       >> /var/log/iface-a-eip-payment.log 2>&1
-0  8  * * *  /xxx/iface-hub/run-job.sh -e .env.a eip pre_products  >> /var/log/iface-a-eip-pre-products.log 2>&1
+0  8  * * *  /xxx/iface-hub/run-job.sh -e .env.a eip pre_products       >> /var/log/iface-a-eip-pre-products.log 2>&1
+30 8  * * *  /xxx/iface-hub/run-job.sh -e .env.a eip product_incorrects >> /var/log/iface-a-eip-product-incorrects.log 2>&1
 
 # 公司 A — RETEX POS
 30 6  * * *  /xxx/iface-hub/run-job.sh -e .env.a retex daily       >> /var/log/iface-a-retex.log 2>&1
@@ -161,8 +162,9 @@ crontab -e
 # 公司 A
 ./run-job.sh -e .env.a eip order          # EIP 訂單
 ./run-job.sh -e .env.a eip payment        # EIP 請款單
-./run-job.sh -e .env.a eip pre_products   # EIP 品號申請
-./run-job.sh -e .env.a eip inventory      # EIP 庫存異動（補跑用）
+./run-job.sh -e .env.a eip pre_products        # EIP 品號申請
+./run-job.sh -e .env.a eip product_incorrects  # EIP 料號基本資料不一致修正
+./run-job.sh -e .env.a eip inventory           # EIP 庫存異動（補跑用）
 ./run-job.sh -e .env.a retex daily        # RETEX POS 前一日全部單據
 ./run-job.sh -e .env.a retex cm_query     # RETEX CM 採購單匯出 XLS（輸出至 CM_QUERY_OUTPUT_DIR）
 ./run-job.sh -e .env.a xdelivery order    # xdelivery 退貨（前 3 日）
@@ -289,13 +291,17 @@ EIP API → eip_client（分頁抓取）
 
 ### RETEX CM 採購單匯出（`cm_query`）
 
-依 25 個門市組合逐一呼叫 `XXIF_RETEX_CM_AX_QUERY`，將結果輸出為 `.xls` 檔案。
+依門市組合逐一呼叫 `XXIF_RETEX_CM_AX_QUERY` 輸出 `.xls`，完成後執行 `XXIF_RETEX_CM_A000_Import` 將 A000/A118 單據寫入歷史表，供後續 ST 驗收匯入時查詢倉庫來源。
 
 ```
 for (DenNo, ShopNo) in task_list:
     iface_client.sp_query("XXIF_RETEX_CM_AX_QUERY", {ShopNo, DenNo})
       → 有資料：寫出 YYYYMMDD_DenNo_ShopNo.xls 至 CM_QUERY_OUTPUT_DIR（預設 /output）
       → 無資料：略過
+
+iface_client.run_procedure("XXIF_RETEX_CM_A000_Import")
+  → 將 A000/A118 CM 單據記錄至 XX_POS_CM_HIST（STATUS 0→5）
+  → 供 XXIF_RETEX_ST_Import 處理進貨驗收時查詢倉庫來源
 ```
 
 輸出目錄透過 volume mount 寫到 Host，不保留在 container 內：
@@ -304,6 +310,17 @@ for (DenNo, ShopNo) in task_list:
 # docker-compose.yml
 volumes:
   - ${CM_QUERY_OUTPUT_DIR:-./output/retex_CM_xls}:/output
+```
+
+### EIP 料號基本資料不一致修正（`product_incorrects`）
+
+```
+EIP API /products/incorrects.json → eip_client（分頁抓取）
+        → 有資料：iface_client.iface_import()    寫入 IFACE（STATUS=0，APP_FUNCTION=INVINC）
+                  iface_client.run_procedure()   XXIF_INVMB_EIP_INCORRECT
+                                                 → 依 EIP 回傳的 manual_* 欄位修正 INVMB
+                  iface_client.status_update()   STATUS 5→6（無 reply 回傳步驟）
+        → 無資料：iface_client.iface_import()    寫入 IFACE（STATUS=6，直接完成）
 ```
 
 ### xdelivery SaaS
