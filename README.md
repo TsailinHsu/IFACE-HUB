@@ -227,9 +227,11 @@ API 文件（Swagger UI）：`http://localhost:${IFACE_DB_PORT}/docs`
 | 值 | 狀態 | 說明 |
 |----|------|------|
 | `0` | pending | 資料寫入，等待 SP 處理 |
-| `5` | processing | SP 執行中 |
-| `6` | complete | 匯入完成；或無資料需匯入（直接標記，不經 SP） |
-| `E` | error | 處理失敗，見 ERROR_MESSAGE |
+| `5` | imported | SP 執行完成，ERP 資料已匯入；等待回傳確認（reply） |
+| `6` | complete | 回傳完成，整筆交易結束；或無資料需匯入（直接標記，不經 SP） |
+| `E` | error | 處理失敗，見 `ERROR_MESSAGE`；同步寫入 `IFACE_ERROR` |
+
+完整生命週期：`0 → 5（SP 匯入）→ 6（reply 確認）`，失敗則轉為 `E`。
 
 ## 環境變數（`.env.x` 完整清單）
 
