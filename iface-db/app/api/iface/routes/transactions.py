@@ -43,10 +43,10 @@ def create_transaction(
     sql = text("""
         INSERT INTO IFACE
             (BATCH_ID, CREATION_DATE, PROCESSED_DATE, API, APP_MODULE, APP_FUNCTION,
-             STATUS, JSON_DOC, QUERY_PARAMS, MERCHANT)
+             STATUS, JSON_DOC, QUERY_PARAMS, MERCHANT, RETRY_COUNT)
         VALUES
             (:batch_id, :creation_date, :processed_date, :api, :module, :function,
-             :status, :json_doc, :query, :merchant)
+             :status, :json_doc, :query, :merchant, 0)
     """)
 
     params = {
