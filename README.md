@@ -167,7 +167,7 @@ crontab -e
 ./run-job.sh -e .env.a eip inventory           # EIP 庫存異動（補跑用）
 ./run-job.sh -e .env.a retex daily        # RETEX POS 前一日全部單據
 ./run-job.sh -e .env.a retex cm_query     # RETEX CM 採購單匯出 XLS（輸出至 CM_QUERY_OUTPUT_DIR）
-./run-job.sh -e .env.a xdelivery order    # xdelivery 退貨（前 3 日）
+./run-job.sh -e .env.a xdelivery order    # xdelivery 退貨（前 1 日）
 ./run-job.sh -e .env.a xdelivery saas     # xdelivery SaaS 服務費
 
 # 公司 B（換 -e .env.b，其餘相同）
