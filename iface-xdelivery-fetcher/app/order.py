@@ -18,7 +18,7 @@ def run() -> None:
     print(f"xdelivery order: {begin_date}")
 
     # 銷貨單
-    xdelivery_client.solds("order_sale",    begin_date, end_date, "COPTG", "銷貨單")
+    xdelivery_client.solds("order_sale",      begin_date, end_date, "COPTG", "銷貨單")
 
     # 銷退單（整筆退）
     xdelivery_client.solds("order_return",    begin_date, end_date, "COPTI", "銷退單")
