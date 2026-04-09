@@ -1,5 +1,5 @@
 """
-xdelivery 退貨 job（前 3 日）
+xdelivery 退貨 job（前 1 日）
 對應 xdelivery/xdelivery.py
 
 注意：銷貨單（order_sale）需人工重分類，不自動匯入，此 job 不處理。
@@ -13,9 +13,12 @@ _STOCK_IN = 1  # 是否已扣庫存：1=是
 
 
 def run() -> None:
-    begin_date = datetime.strftime(datetime.now() - timedelta(3), "%Y/%m/%d")
+    begin_date = datetime.strftime(datetime.now() - timedelta(1), "%Y/%m/%d")
     end_date   = begin_date
     print(f"xdelivery order: {begin_date}")
+
+    # 銷貨單
+    xdelivery_client.solds("order_sale",    begin_date, end_date, "COPTG", "銷貨單")
 
     # 銷退單（整筆退）
     xdelivery_client.solds("order_return",    begin_date, end_date, "COPTI", "銷退單")
