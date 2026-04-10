@@ -54,7 +54,9 @@ def query_view(
     )
 
     try:
-        result = db.execute(sql, params).scalar_one_or_none()
+        # MSSQL FOR JSON 結果可能被切成多列（每列最多 2033 字元），需串接後再解析
+        rows = db.execute(sql, params).scalars().all()
+        result = "".join(r for r in rows if r) if rows else None
     except Exception as e:
         raise HTTPException(
             status_code=500,

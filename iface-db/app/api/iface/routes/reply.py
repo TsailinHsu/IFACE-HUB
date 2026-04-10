@@ -39,7 +39,9 @@ def get_reply(
     sql = text(f"SELECT * FROM {view_name} FOR JSON PATH, ROOT('Result')")
 
     try:
-        result = db.execute(sql).scalar_one_or_none()
+        # MSSQL FOR JSON 結果可能被切成多列（每列最多 2033 字元），需串接後再解析
+        rows = db.execute(sql).scalars().all()
+        result = "".join(r for r in rows if r) if rows else None
     except Exception as e:
         raise HTTPException(
             status_code=500,

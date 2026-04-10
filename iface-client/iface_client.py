@@ -50,7 +50,14 @@ def run_procedure(procedure_name: str, database: str = "IFACE",
         json=payload,
         timeout=_TIMEOUT_LONG,
     )
-    resp.raise_for_status()
+    if not resp.ok:
+        try:
+            detail = resp.json().get("detail", resp.text)
+        except Exception:
+            detail = resp.text
+        raise requests.exceptions.HTTPError(
+            f"{resp.status_code} Error: {detail}", response=resp
+        )
 
 
 def status_update(module: str, function: str,

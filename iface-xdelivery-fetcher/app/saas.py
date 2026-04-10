@@ -5,8 +5,8 @@ xdelivery SaaS 服務費 / 簡訊儲值 job
 
 import xdelivery_client
 
-_STATUS        = "0"  # 鼎新匯入狀態（未匯入）
-_INVOICE_STATUS = "invoiced"
+_STATUS        = "pending"
+_INVOICE_STATUS = "1"
 
 
 def run() -> None:
