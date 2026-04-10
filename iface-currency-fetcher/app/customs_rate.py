@@ -5,6 +5,9 @@
 
 import sys
 import requests
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from iface_client import iface_import, run_procedure
 
 _URL = "https://portal.sw.nat.gov.tw/APGQ/GC331!downLoad?formBean.downLoadFile=CURRENT_JSON"
@@ -12,7 +15,7 @@ _URL = "https://portal.sw.nat.gov.tw/APGQ/GC331!downLoad?formBean.downLoadFile=C
 
 def run() -> None:
     try:
-        response = requests.get(_URL, timeout=30)
+        response = requests.get(_URL, timeout=30, verify=False)
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         print(f"HTTP 請求失敗: {e}")
