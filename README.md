@@ -154,6 +154,52 @@ crontab -e
 0  8  * * *  /xxx/iface-hub/run-job.sh -e .env.b eip pre_products   >> /var/log/iface-b-eip-pre-products.log 2>&1
 ```
 
+## 程式異動後更新部署
+
+### iface-db 或 iface-client 有異動
+
+這兩個是所有 fetcher 共用的核心套件，異動後需重建 **所有** 相關 image：
+
+```bash
+# 重建並重啟 iface-db
+docker compose --env-file .env.a up -d --build iface-db
+
+# 重建所有 fetcher image（下次執行 job 時會使用新 image）
+docker compose --env-file .env.a build
+```
+
+> `iface-client` 在 build time 以 `pip install ./iface-client` 安裝進各 fetcher image，
+> 因此修改 `iface-client` 後必須重建 fetcher image，否則仍使用舊版。
+
+### 只有單一 fetcher 有異動
+
+```bash
+# 只重建指定的 fetcher（例如 iface-eip-fetcher）
+docker compose --env-file .env.a build iface-eip-fetcher
+```
+
+下次執行對應 job 時，Docker Compose 會自動使用新建的 image。
+
+### 確認 image 是否已更新
+
+```bash
+# 查看各 service 使用的 image 建立時間
+docker compose --env-file .env.a images
+```
+
+### 常見異動對應的重建範圍
+
+| 異動檔案 | 需重建的 image |
+|----------|---------------|
+| `iface-db/app/**` | `iface-db` |
+| `iface-client/iface_client.py` | 所有 fetcher（`build` 不指定 service） |
+| `iface-eip-fetcher/app/**` | `iface-eip-fetcher` |
+| `iface-retex-fetcher/app/**` | `iface-retex-fetcher` |
+| `iface-xdelivery-fetcher/app/**` | `iface-xdelivery-fetcher` |
+| `iface-eip-fetcher/config/*.yml` | 不需重建（掛載至 container，直接生效） |
+
+---
+
 ## 手動執行 Job
 
 ```bash
@@ -286,7 +332,7 @@ EIP API → eip_client（分頁抓取）
 4. iface_client.run_procedure(XXIF_RETEX_*)  各類型匯入 Cosmos ERP
 5. iface_client.named_query("RETEX_CM_GET_ORDERS")  查詢 CM 採購單
    retex_client.doc_update()                回傳 POS ErpDocUpdate
-6. iface_client.run_procedure("XX_UPDATE_DATASTAMP") 更新高水位
+6. iface_client.run_procedure("XX_UPDATE_DATASTAMP") 紀錄最新 DataStamp
 ```
 
 ### RETEX CM 採購單匯出（`cm_query`）
@@ -387,15 +433,6 @@ UPDATE IFACE_ERROR
 SET RESOLVED = 1, RESOLVED_DATE = GETDATE(), RESOLVED_BY = 'mis', RESOLVED_NOTE = '已手動補匯'
 WHERE ERROR_ID = 123;
 ```
-
-## 移轉至 Business Central
-
-當某家公司移轉至 BC 雲端 ERP 時：
-
-1. 在 `iface-db` 新增 BC OData 客戶端（參考 `integration-hub` 的 `bc/` 目錄）
-2. 在資料庫新增 `company_erp_target` 設定表
-3. `iface-db` 依公司代碼路由至 Cosmos ERP SP 或 BC OData
-4. Fetcher 容器不需異動
 
 ## 新增 Fetcher 模板
 
