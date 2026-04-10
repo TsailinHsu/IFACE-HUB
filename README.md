@@ -387,12 +387,12 @@ EIP API /products/incorrects.json → eip_client（分頁抓取）
 # currency_api — 對美金匯率（currencyapi.com）
 GET https://api.currencyapi.com/v3/latest
   → iface_client.iface_import()       寫入 IFACE（MODULE=currencyAPI, FUNCTION=RATE）
-  → iface_client.run_procedure()      XXIF_CURRENCY_Rate_Import → IFACE..XX_TO_USD_RATE
+  → iface_client.run_procedure()      XXIF_CURRENCY_Rate_Import → XX_TO_USD_RATE
 
 # customs_rate — 海關三旬匯率（portal.sw.nat.gov.tw）
 GET https://portal.sw.nat.gov.tw/.../CURRENT_JSON
   → iface_client.iface_import()       寫入 IFACE（MODULE=CUSTOMS, FUNCTION=RATE）
-  → iface_client.run_procedure()      XXIF_CUSTOMS_Rate_Import → IFACE..XX_CUSTOMS_RATE
+  → iface_client.run_procedure()      XXIF_CUSTOMS_Rate_Import → XX_CUSTOMS_RATE
 ```
 
 ### xdelivery SaaS
