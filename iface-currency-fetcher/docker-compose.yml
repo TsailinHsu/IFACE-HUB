@@ -1,0 +1,17 @@
+services:
+  iface-currency-fetcher:
+    container_name: iface-currency-fetcher
+    image: iface-currency-fetcher:1.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    networks:
+      - iface-net
+    env_file:
+      - .env
+    restart: "no"
+
+networks:
+  iface-net:
+    external: true
+    name: ${COMPOSE_PROJECT_NAME}_default

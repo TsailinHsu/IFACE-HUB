@@ -9,6 +9,7 @@
 #   eip        iface-eip-fetcher（order / payment / pre_products / inventory）
 #   retex      iface-retex-fetcher（daily / cm_query）
 #   xdelivery  iface-xdelivery-fetcher（order / saas）
+#   currency   iface-currency-fetcher（currency_api / customs_rate）
 #
 # 範例：
 #   ./run-job.sh -e .env.a eip order
@@ -17,6 +18,8 @@
 #   ./run-job.sh -e .env.a retex daily
 #   ./run-job.sh -e .env.a retex cm_query
 #   ./run-job.sh -e .env.a xdelivery saas
+#   ./run-job.sh -e .env.a currency currency_api
+#   ./run-job.sh -e .env.a currency customs_rate
 #
 # 初始化資料庫（首次部署）：
 #   ./run-job.sh -e .env.a init

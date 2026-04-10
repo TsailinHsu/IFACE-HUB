@@ -99,6 +99,24 @@ services:
         condition: service_healthy
     profiles: [retex]
 
+  # ── Currency Fetcher (on-demand) ────────────────────────────
+  iface-currency-fetcher:
+    build:
+      context: .
+      dockerfile: iface-currency-fetcher/Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME}-currency-fetcher
+    environment:
+      DB_API_URL:        http://iface-db:8000
+      CURRENCY_API_KEY:  ${CURRENCY_API_KEY}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    restart: "no"
+    depends_on:
+      iface-db:
+        condition: service_healthy
+    profiles: [currency]
+
   # ── xdelivery Fetcher (on-demand) ───────────────────────────
   iface-xdelivery-fetcher:
     build:

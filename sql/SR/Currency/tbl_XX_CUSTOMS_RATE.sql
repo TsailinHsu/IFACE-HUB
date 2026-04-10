@@ -1,0 +1,17 @@
+USE [IFACE_SR]
+GO
+
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[XX_CUSTOMS_RATE](
+	[START_DATE] [nchar](8) NULL,
+	[END_DATE] [nchar](8) NULL,
+	[CODE] [nchar](3) NULL,
+	[BUY_RATE] [numeric](18, 5) NULL,
+	[SELL_RATE] [numeric](18, 5) NULL
+) ON [PRIMARY]
+GO

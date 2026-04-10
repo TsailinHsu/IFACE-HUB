@@ -12,6 +12,8 @@ EIP LL API       ──HTTP──▶   └─ /api/v1/iface/*    ──SP──�
 RETEX POS API    ──HTTP──▶       transactions               Stored Procedures
 xdelivery API    ──HTTP──▶       status-update
 Super Landing    ──HTTP──▶       sp/{name}
+currencyapi.com  ──HTTP──▶       sp-query/{name}
+海關匯率 API     ──HTTP──▶       reply/{view}
                                  sp-query/{name}
                                  reply/{view}
                                  query/{view}
@@ -45,6 +47,7 @@ iface-hub/
 │       └── eipll.yml               公司 B 流程設定（MODULE=LLEIP）
 ├── iface-retex-fetcher/            RETEX POS 系統（daily / cm_query）
 ├── iface-xdelivery-fetcher/        xdelivery 物流 / Super Landing
+├── iface-currency-fetcher/         匯率資料（currency_api / customs_rate）
 └── iface-client/                   共用 iface-db HTTP client（Python package）
 ```
 
@@ -78,6 +81,7 @@ iface-a-xdelivery-fetcher    （公司 B 不使用）
 | EIP | ✓ `config/eip.yml` | ✓ `config/eipll.yml` |
 | RETEX POS | ✓ | — |
 | xdelivery | ✓ | — |
+| currency（匯率） | ✓ | — |
 | Cosmos ERP | `INSTANCE_A` | `INSTANCE_B` |
 | iface-db port | `8100` | `8101` |
 
@@ -145,8 +149,12 @@ crontab -e
 0  9  * * *  /xxx/iface-hub/run-job.sh -e .env.a retex cm_query    >> /var/log/iface-a-retex-cm.log 2>&1
 
 # 公司 A — xdelivery
-0  6  * * *  /xxx/iface-hub/run-job.sh -e .env.a xdelivery order   >> /var/log/iface-a-xdelivery-order.log 2>&1
-0  9  * * *  /xxx/iface-hub/run-job.sh -e .env.a xdelivery saas    >> /var/log/iface-a-xdelivery-saas.log 2>&1
+0  6  * * *  /xxx/iface-hub/run-job.sh -e .env.a xdelivery order         >> /var/log/iface-a-xdelivery-order.log 2>&1
+0  9  * * *  /xxx/iface-hub/run-job.sh -e .env.a xdelivery saas          >> /var/log/iface-a-xdelivery-saas.log 2>&1
+
+# 公司 A — currency 匯率
+0  8  * * 1  /xxx/iface-hub/run-job.sh -e .env.a currency currency_api   >> /var/log/iface-a-currency-api.log 2>&1
+0  8  1,11,21 * *  /xxx/iface-hub/run-job.sh -e .env.a currency customs_rate  >> /var/log/iface-a-customs-rate.log 2>&1
 
 # 公司 B — EIP LL
 0  7  * * *  /xxx/iface-hub/run-job.sh -e .env.b eip order         >> /var/log/iface-b-eip-order.log 2>&1
@@ -196,6 +204,7 @@ docker compose --env-file .env.a images
 | `iface-eip-fetcher/app/**` | `iface-eip-fetcher` |
 | `iface-retex-fetcher/app/**` | `iface-retex-fetcher` |
 | `iface-xdelivery-fetcher/app/**` | `iface-xdelivery-fetcher` |
+| `iface-currency-fetcher/app/**` | `iface-currency-fetcher` |
 | `iface-eip-fetcher/config/*.yml` | 不需重建（掛載至 container，直接生效） |
 
 ---
@@ -215,6 +224,8 @@ docker compose --env-file .env.a images
 ./run-job.sh -e .env.a retex cm_query     # RETEX CM 採購單匯出 XLS（輸出至 CM_QUERY_OUTPUT_DIR）
 ./run-job.sh -e .env.a xdelivery order    # xdelivery 退貨（前 1 日）
 ./run-job.sh -e .env.a xdelivery saas     # xdelivery SaaS 服務費
+./run-job.sh -e .env.a currency currency_api   # 對美金匯率（currencyapi.com）
+./run-job.sh -e .env.a currency customs_rate   # 海關三旬匯率
 
 # 公司 B（換 -e .env.b，其餘相同）
 ./run-job.sh -e .env.b eip order
@@ -303,6 +314,7 @@ API 文件（Swagger UI）：`http://localhost:${IFACE_DB_PORT}/docs`
 | `XDELIVERY_MERCHANT_ID` | 商家 ID | `1` |
 | `XDELIVERY_MERCHANT_NAME` | 商家名稱 | `光速火箭有限公司` |
 | `CM_QUERY_OUTPUT_DIR` | RETEX CM XLS 輸出目錄（Host 路徑，掛載至 container `/output`） | `./output/retex_CM_xls` |
+| `CURRENCY_API_KEY` | currencyapi.com API 金鑰 | |
 
 不使用的 fetcher，對應變數留空即可。
 
@@ -367,6 +379,20 @@ EIP API /products/incorrects.json → eip_client（分頁抓取）
                                                  → 依 EIP 回傳的 manual_* 欄位修正 INVMB
                   iface_client.status_update()   STATUS 5→6（無 reply 回傳步驟）
         → 無資料：iface_client.iface_import()    寫入 IFACE（STATUS=6，直接完成）
+```
+
+### currency 匯率
+
+```
+# currency_api — 對美金匯率（currencyapi.com）
+GET https://api.currencyapi.com/v3/latest
+  → iface_client.iface_import()       寫入 IFACE（MODULE=currencyAPI, FUNCTION=RATE）
+  → iface_client.run_procedure()      XXIF_CURRENCY_Rate_Import → IFACE..XX_TO_USD_RATE
+
+# customs_rate — 海關三旬匯率（portal.sw.nat.gov.tw）
+GET https://portal.sw.nat.gov.tw/.../CURRENT_JSON
+  → iface_client.iface_import()       寫入 IFACE（MODULE=CUSTOMS, FUNCTION=RATE）
+  → iface_client.run_procedure()      XXIF_CUSTOMS_Rate_Import → IFACE..XX_CUSTOMS_RATE
 ```
 
 ### xdelivery SaaS
