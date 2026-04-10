@@ -38,6 +38,9 @@ class Settings(BaseSettings):
         "XXIF_ACPTA_Import",               # 請款單
         # xdelivery
         "XXIF_COPTG_SaaS_Import",          # xdelivery SaaS 費用
+        # Currency
+        "XXIF_CURRENCY_Rate_Import",       # 即期匯率
+        "XXIF_CUSTOMS_Rate_Import",        # 海關三旬匯率
         # RETEX 
         "XXIF_RETEX_SO_Import",            # 銷售訂單
         "XXIF_RETEX_BO_Import",            # 進貨退回
