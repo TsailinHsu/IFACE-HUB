@@ -45,7 +45,7 @@ iface-hub/
 │   └── config/
 │       ├── eip.yml                 公司 A 流程設定（MODULE=EIP）
 │       └── eipll.yml               公司 B 流程設定（MODULE=LLEIP）
-├── iface-retex-fetcher/            RETEX POS 系統（daily / cm_query）
+├── iface-retex-fetcher/            RETEX POS 系統（daily / cm_query / so_import）
 ├── iface-xdelivery-fetcher/        xdelivery 物流 / Super Landing
 ├── iface-currency-fetcher/         匯率資料（currency_api / customs_rate）
 └── iface-client/                   共用 iface-db HTTP client（Python package）
@@ -222,6 +222,7 @@ docker compose --env-file .env.a images
 ./run-job.sh -e .env.a eip inventory           # EIP 庫存異動（補跑用）
 ./run-job.sh -e .env.a retex daily        # RETEX POS 前一日全部單據
 ./run-job.sh -e .env.a retex cm_query     # RETEX CM 採購單匯出 XLS（輸出至 CM_QUERY_OUTPUT_DIR）
+./run-job.sh -e .env.a retex so_import 2025/01/01 2025/01/31  # RETEX SO 銷貨補跑（指定日期區間）
 ./run-job.sh -e .env.a xdelivery order    # xdelivery 退貨（前 1 日）
 ./run-job.sh -e .env.a xdelivery saas     # xdelivery SaaS 服務費
 ./run-job.sh -e .env.a currency currency_api   # 對美金匯率（currencyapi.com）
@@ -345,6 +346,25 @@ EIP API → eip_client（分頁抓取）
 5. iface_client.named_query("RETEX_CM_GET_ORDERS")  查詢 CM 採購單
    retex_client.doc_update()                回傳 POS ErpDocUpdate
 6. iface_client.run_procedure("XX_UPDATE_DATASTAMP") 紀錄最新 DataStamp
+```
+
+### RETEX SO 銷貨補跑（`so_import`）
+
+指定日期區間手動補跑銷貨資料，適用於每日排程失敗或需要重跑歷史資料的情境。
+
+```
+retex_client.query_sales(StDate, EdDate)     查詢指定區間 SO
+  → ResultNo=00：寫入 IFACE（STATUS=0）
+  → 無資料：    寫入 IFACE（STATUS=6，直接完成）
+iface_client.run_procedure("XXIF_RETEX_SO_Import")  匯入 Cosmos ERP
+```
+
+用法：
+
+```bash
+./run-job.sh -e .env.a retex so_import <start_date> <end_date>
+# 日期格式 YYYY/MM/DD
+./run-job.sh -e .env.a retex so_import 2025/01/01 2025/01/31
 ```
 
 ### RETEX CM 採購單匯出（`cm_query`）

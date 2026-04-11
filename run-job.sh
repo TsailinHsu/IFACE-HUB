@@ -7,7 +7,7 @@
 #
 # fetcher:
 #   eip        iface-eip-fetcher（order / payment / pre_products / inventory）
-#   retex      iface-retex-fetcher（daily / cm_query）
+#   retex      iface-retex-fetcher（daily / cm_query / so_import）
 #   xdelivery  iface-xdelivery-fetcher（order / saas）
 #   currency   iface-currency-fetcher（currency_api / customs_rate）
 #
@@ -17,6 +17,7 @@
 #   ./run-job.sh -e .env.b eip order        # 公司 B
 #   ./run-job.sh -e .env.a retex daily
 #   ./run-job.sh -e .env.a retex cm_query
+#   ./run-job.sh -e .env.a retex so_import 2025/01/01 2025/01/31
 #   ./run-job.sh -e .env.a xdelivery saas
 #   ./run-job.sh -e .env.a currency currency_api
 #   ./run-job.sh -e .env.a currency customs_rate
@@ -47,6 +48,7 @@ fi
 
 FETCHER="${1:-}"
 JOB="${2:-}"
+EXTRA_ARGS=("${@:3}")
 
 if [ -z "$FETCHER" ]; then
     echo "Error: 請指定 fetcher 或 init"
@@ -74,4 +76,4 @@ PROFILE="$FETCHER"
 
 docker compose --env-file "$ENV_FILE" up -d iface-db
 docker compose --env-file "$ENV_FILE" --profile "$PROFILE" \
-    run --rm "$SERVICE" python app/main.py "$JOB"
+    run --rm "$SERVICE" python app/main.py "$JOB" "${EXTRA_ARGS[@]}"
