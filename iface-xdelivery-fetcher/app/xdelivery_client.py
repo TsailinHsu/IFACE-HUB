@@ -5,7 +5,7 @@ xdelivery / Super Landing API 客戶端
 import json
 import os
 import requests
-from iface_client import iface_import, get_reply
+from iface_client import iface_import, get_reply, status_update
 
 _ACCESS_KEY    = os.getenv("XDELIVERY_ACCESS_KEY", "")
 _MERCHANT_ID   = int(os.getenv("XDELIVERY_MERCHANT_ID", "1"))
@@ -140,7 +140,8 @@ def saas_reply() -> None:
     if not items:
         return
 
-    params = {"access_key": _ACCESS_KEY}
+    params    = {"access_key": _ACCESS_KEY}
+    succeeded = 0
     for item in items:
         ret_url = f"{item['URL']}/{item['ID']}/ok.json"
         data    = {**params, "id": item["ID"], "cosmos_ref_id": item["RefId"]}
@@ -148,6 +149,11 @@ def saas_reply() -> None:
             resp = requests.post(ret_url, params=data, timeout=30)
             resp.raise_for_status()
             print(ret_url, resp.status_code)
+            succeeded += 1
         except requests.exceptions.RequestException as err:
             print(f"SaaS reply error: {err}")
             continue
+
+    if succeeded:
+        rows = status_update("COPTG", "SaaS", "5", "6")
+        print(f"SaaS status 5→6: {rows} rows updated")
