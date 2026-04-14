@@ -21,6 +21,7 @@ JOBS = {
 def main() -> None:
     if len(sys.argv) < 2 or sys.argv[1] not in JOBS:
         print(f"用法: python app/main.py [{' | '.join(JOBS)}] [args...]")
+        print("  cm_query  需指定日期區間：cm_query  <start_date> <end_date>  (格式: YYYY/MM/DD)")
         print("  so_import 需指定日期區間：so_import <start_date> <end_date>  (格式: YYYY/MM/DD)")
         sys.exit(1)
 

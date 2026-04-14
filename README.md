@@ -146,7 +146,7 @@ crontab -e
 
 # 公司 A — RETEX POS
 30 6  * * *  /xxx/iface-hub/run-job.sh -e .env.a retex daily       >> /var/log/iface-a-retex.log 2>&1
-0  9  * * *  /xxx/iface-hub/run-job.sh -e .env.a retex cm_query    >> /var/log/iface-a-retex-cm.log 2>&1
+0  9  * * *  /xxx/iface-hub/run-job.sh -e .env.a retex cm_query $(date -d "yesterday" +\%Y/\%m/\%d) $(date -d "yesterday" +\%Y/\%m/\%d)  >> /var/log/iface-a-retex-cm.log 2>&1
 
 # 公司 A — xdelivery
 0  6  * * *  /xxx/iface-hub/run-job.sh -e .env.a xdelivery order         >> /var/log/iface-a-xdelivery-order.log 2>&1
@@ -221,7 +221,7 @@ docker compose --env-file .env.a images
 ./run-job.sh -e .env.a eip product_incorrects  # EIP 料號基本資料不一致修正
 ./run-job.sh -e .env.a eip inventory           # EIP 庫存異動（補跑用）
 ./run-job.sh -e .env.a retex daily        # RETEX POS 前一日全部單據
-./run-job.sh -e .env.a retex cm_query     # RETEX CM 採購單匯出 XLS（輸出至 CM_QUERY_OUTPUT_DIR）
+./run-job.sh -e .env.a retex cm_query 2026/04/01 2026/04/14   # RETEX CM 通知單匯出 XLS（指定日期區間）
 ./run-job.sh -e .env.a retex so_import 2025/01/01 2025/01/31  # RETEX SO 銷貨補跑（指定日期區間）
 ./run-job.sh -e .env.a xdelivery order    # xdelivery 退貨（前 1 日）
 ./run-job.sh -e .env.a xdelivery saas     # xdelivery SaaS 服務費
@@ -367,11 +367,19 @@ iface_client.run_procedure("XXIF_RETEX_SO_Import")  匯入 Cosmos ERP
 ./run-job.sh -e .env.a retex so_import 2025/01/01 2025/01/31
 ```
 
-### RETEX CM 採購單匯出（`cm_query`）
+### RETEX CM 通知單匯出（`cm_query`）
 
-依門市組合逐一呼叫 `XXIF_RETEX_CM_AX_QUERY` 輸出 `.xls`，完成後執行 `XXIF_RETEX_CM_A000_Import` 將 A000/A118 單據寫入歷史表，供後續 ST 驗收匯入時查詢倉庫來源。
+此類 CM 單為通知倉庫出貨的通知單（非一般補貨採購），不走 `XXIF_RETEX_CM_Import` 產生採購單，而是直接呼叫 `XXIF_RETEX_CM_AX_QUERY` 輸出 `.xls` 通知倉庫。
+完成後執行 `XXIF_RETEX_CM_A000_Import` 將 A000/A118 單據寫入歷史表，供後續 ST 驗收匯入時查詢倉庫來源。
+
+> **未來規劃**：視 WMS 系統建置進度，XLS 輸出將改為直接呼叫 WMS API 傳送通知單，毋需人工轉檔。
 
 ```
+retex_client.query_docs(DocTyNo="CM", DataStamp=0, StDate, EdDate)
+  → ResultNo=00：寫入 IFACE（STATUS=0）
+  → 無資料：    寫入 IFACE（STATUS=6，直接完成）
+  ※ 不呼叫 XXIF_RETEX_CM_Import（非採購單流程）
+
 for (DenNo, ShopNo) in task_list:
     iface_client.sp_query("XXIF_RETEX_CM_AX_QUERY", {ShopNo, DenNo})
       → 有資料：寫出 YYYYMMDD_DenNo_ShopNo.xls 至 CM_QUERY_OUTPUT_DIR（預設 /output）
@@ -380,6 +388,14 @@ for (DenNo, ShopNo) in task_list:
 iface_client.run_procedure("XXIF_RETEX_CM_A000_Import")
   → 將 A000/A118 CM 單據記錄至 XX_POS_CM_HIST（STATUS 0→5）
   → 供 XXIF_RETEX_ST_Import 處理進貨驗收時查詢倉庫來源
+```
+
+用法：
+
+```bash
+./run-job.sh -e .env.a retex cm_query <start_date> <end_date>
+# 日期格式 YYYY/MM/DD
+./run-job.sh -e .env.a retex cm_query 2026/04/01 2026/04/14
 ```
 
 輸出目錄透過 volume mount 寫到 Host，不保留在 container 內：

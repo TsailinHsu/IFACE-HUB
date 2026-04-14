@@ -1,8 +1,17 @@
 """
-RETEX CM AX Query — 輸出門市訂單採購單為 XLS
+RETEX CM 通知單匯出 — 自 RETEX 取得指定日期區間的 CM 文件並輸出為 XLS
 
-執行 XXIF_RETEX_CM_AX_QUERY SP，依每個 (DenNo, ShopNo) 組合
-匯出一份 .xls 檔案至 OUTPUT_DIR（預設 /output）。
+CM 單為通知倉庫出貨的通知單，不走採購單（XXIF_RETEX_CM_Import）流程。
+未來視 WMS 系統建置，XLS 輸出將改為 WMS API 呼叫。
+
+執行流程：
+  1. 向 RETEX API 查詢指定日期區間的 CM 單據並寫入 IFACE
+  2. 執行 XXIF_RETEX_CM_AX_QUERY SP，依每個 (DenNo, ShopNo) 組合
+     匯出一份 .xls 檔案至 OUTPUT_DIR（預設 /output）
+  3. 執行 XXIF_RETEX_CM_A000_Import，寫入歷史記錄
+
+用法：python app/main.py cm_query <start_date> <end_date>
+      日期格式：YYYY/MM/DD
 """
 
 import os
@@ -10,6 +19,7 @@ from datetime import datetime, date
 
 import xlwt
 
+import retex_client
 from iface_client import run_procedure, sp_query
 
 _OUTPUT_DIR = os.getenv("CM_QUERY_OUTPUT_DIR", "/output")
@@ -46,7 +56,16 @@ _TEXT_STYLE = xlwt.easyxf(num_format_str="@")
 _DATE_STYLE = xlwt.easyxf(num_format_str="YYYY/MM/DD")
 
 
-def run() -> None:
+def run(start_date: str, end_date: str) -> None:
+    print(f"RETEX cm_query: {start_date} ~ {end_date}")
+
+    # --- 1. 自 RETEX 取得指定日期區間的 CM 單據 ---
+    retex_client.query_docs(
+        {"RequestData": {"DocTyNo": "CM", "StDate": start_date, "EdDate": end_date}},
+        "CM",
+    )
+
+    # --- 2. 匯出 XLS ---
     os.makedirs(_OUTPUT_DIR, exist_ok=True)
     today_str = datetime.today().strftime("%Y%m%d")
 
