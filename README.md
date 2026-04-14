@@ -367,7 +367,7 @@ iface_client.run_procedure("XXIF_RETEX_SO_Import")  匯入 Cosmos ERP
 ./run-job.sh -e .env.a retex so_import 2025/01/01 2025/01/31
 ```
 
-### RETEX CM 通知單匯出（`cm_query`）
+### RETEX CM 通知單匯出（`cm_ax_import`）
 
 此類 CM 單為通知倉庫出貨的通知單（非一般補貨採購），不走 `XXIF_RETEX_CM_Import` 產生採購單，而是直接呼叫 `XXIF_RETEX_CM_AX_QUERY` 輸出 `.xls` 通知倉庫。
 完成後執行 `XXIF_RETEX_CM_A000_Import` 將 A000/A118 單據寫入歷史表，供後續 ST 驗收匯入時查詢倉庫來源。
@@ -393,9 +393,9 @@ iface_client.run_procedure("XXIF_RETEX_CM_A000_Import")
 用法：
 
 ```bash
-./run-job.sh -e .env.a retex cm_query <start_date> <end_date>
+./run-job.sh -e .env.a retex cm_ax_import <start_date> <end_date>
 # 日期格式 YYYY/MM/DD
-./run-job.sh -e .env.a retex cm_query 2026/04/01 2026/04/14
+./run-job.sh -e .env.a retex cm_ax_import 2026/04/01 2026/04/14
 ```
 
 輸出目錄透過 volume mount 寫到 Host，不保留在 container 內：
