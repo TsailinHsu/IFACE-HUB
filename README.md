@@ -221,7 +221,7 @@ docker compose --env-file .env.a images
 ./run-job.sh -e .env.a eip product_incorrects  # EIP 料號基本資料不一致修正
 ./run-job.sh -e .env.a eip inventory           # EIP 庫存異動（補跑用）
 ./run-job.sh -e .env.a retex daily        # RETEX POS 前一日全部單據
-./run-job.sh -e .env.a retex cm_ax_import 2026/04/01 2026/04/14   # RETEX CM 通知單匯入及回傳 POS（指定日期區間）
+./run-job.sh -e .env.a retex cm_ax_import 2026/04/01 2026/04/14   # RETEX CM 針對 A000/A118 通知單匯出及回傳 POS（指定日期區間）
 ./run-job.sh -e .env.a retex so_import 2025/01/01 2025/01/31  # RETEX SO 銷貨補跑（指定日期區間）
 ./run-job.sh -e .env.a xdelivery order    # xdelivery 退貨（前 1 日）
 ./run-job.sh -e .env.a xdelivery saas     # xdelivery SaaS 服務費
