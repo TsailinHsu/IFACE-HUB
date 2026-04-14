@@ -77,6 +77,11 @@ def query_sales(request_data: dict) -> None:
     _query_and_import(_BASE_URL + _POS_SALES_DOC, request_data, "SO")
 
 
+def query_sales_raw(request_data: dict) -> dict:
+    """查詢 POS 銷貨明細（SO），只回傳 API 原始結果，不寫入 IFACE。供診斷用。"""
+    return _call_api(_BASE_URL + _POS_SALES_DOC, request_data)
+
+
 # ---------------------------------------------------------------------------
 # DocUpdate：CM 轉採購單後回傳 POS
 # ---------------------------------------------------------------------------

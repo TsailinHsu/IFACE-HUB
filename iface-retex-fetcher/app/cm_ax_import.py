@@ -9,8 +9,9 @@ CM 單為通知倉庫出貨的通知單，不走採購單（XXIF_RETEX_CM_Import
   2. 執行 XXIF_RETEX_CM_AX_QUERY SP，依每個 (DenNo, ShopNo) 組合
      匯出一份 .xls 檔案至 OUTPUT_DIR（預設 /output）
   3. 執行 XXIF_RETEX_CM_A000_Import，寫入歷史記錄
+  4. 執行 RETEX_CM_A000_GET_ORDERS 取得 ERP 採購單，回傳 RETEX POS（ErpDocUpdate）
 
-用法：python app/main.py cm_query <start_date> <end_date>
+用法：python app/main.py cm_ax_import <start_date> <end_date>
       日期格式：YYYY/MM/DD
 """
 
@@ -20,7 +21,7 @@ from datetime import datetime, date
 import xlwt
 
 import retex_client
-from iface_client import run_procedure, sp_query
+from iface_client import run_procedure, sp_query, named_query
 
 _OUTPUT_DIR = os.getenv("CM_QUERY_OUTPUT_DIR", "/output")
 
@@ -117,3 +118,8 @@ def run(start_date: str, end_date: str) -> None:
 
     run_procedure("XXIF_RETEX_CM_A000_Import")
     print("✅  CM A000/A118 歷史記錄完成")
+
+    # --- CM 轉採購單回傳 POS ---
+    erp_orders = named_query("RETEX_CM_A000_GET_ORDERS")
+    result = retex_client.doc_update(erp_orders)
+    print("ErpDocUpdate (A000):", result)

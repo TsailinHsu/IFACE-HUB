@@ -119,11 +119,11 @@ class Settings(BaseSettings):
             """,
         },
         "RETEX_CM_A000_GET_ORDERS": {
-            "database": "IFACE",
+            "database": "IFACE_SR",
             "sql": """
                 WITH XX_ORDER AS (
                     SELECT DocNo, DocDate, ShopNo, DocRem, DenNo, DocDetial
-                    FROM IFACE.dbo.IFACE
+                    FROM IFACE
                     CROSS APPLY OPENJSON(JSON_DOC, '$.DocData') WITH (
                         DocNo      NVARCHAR(100) '$.DocNo',
                         DocDate    DATE          '$.DocDate',
@@ -132,7 +132,7 @@ class Settings(BaseSettings):
                         DenNo      NVARCHAR(100) '$.DenNo',
                         DocDetial  NVARCHAR(MAX) '$.DocDetial' AS JSON
                     ) AS h
-                    WHERE STATUS = '0'
+                    WHERE STATUS = '5'
                       AND APP_FUNCTION = N'CM'
                       AND DenNo IN (N'A000', N'A118')
                 ),

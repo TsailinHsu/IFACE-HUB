@@ -45,7 +45,7 @@ iface-hub/
 │   └── config/
 │       ├── eip.yml                 公司 A 流程設定（MODULE=EIP）
 │       └── eipll.yml               公司 B 流程設定（MODULE=LLEIP）
-├── iface-retex-fetcher/            RETEX POS 系統（daily / cm_query / so_import）
+├── iface-retex-fetcher/            RETEX POS 系統（daily / cm_ax_import / so_import）
 ├── iface-xdelivery-fetcher/        xdelivery 物流 / Super Landing
 ├── iface-currency-fetcher/         匯率資料（currency_api / customs_rate）
 └── iface-client/                   共用 iface-db HTTP client（Python package）
@@ -146,7 +146,7 @@ crontab -e
 
 # 公司 A — RETEX POS
 30 6  * * *  /xxx/iface-hub/run-job.sh -e .env.a retex daily       >> /var/log/iface-a-retex.log 2>&1
-0  9  * * *  /xxx/iface-hub/run-job.sh -e .env.a retex cm_query $(date -d "yesterday" +\%Y/\%m/\%d) $(date -d "yesterday" +\%Y/\%m/\%d)  >> /var/log/iface-a-retex-cm.log 2>&1
+0  9  * * *  /xxx/iface-hub/run-job.sh -e .env.a retex cm_ax_import $(date -d "yesterday" +\%Y/\%m/\%d) $(date -d "yesterday" +\%Y/\%m/\%d)  >> /var/log/iface-a-retex-cm.log 2>&1
 
 # 公司 A — xdelivery
 0  6  * * *  /xxx/iface-hub/run-job.sh -e .env.a xdelivery order         >> /var/log/iface-a-xdelivery-order.log 2>&1
@@ -221,7 +221,7 @@ docker compose --env-file .env.a images
 ./run-job.sh -e .env.a eip product_incorrects  # EIP 料號基本資料不一致修正
 ./run-job.sh -e .env.a eip inventory           # EIP 庫存異動（補跑用）
 ./run-job.sh -e .env.a retex daily        # RETEX POS 前一日全部單據
-./run-job.sh -e .env.a retex cm_query 2026/04/01 2026/04/14   # RETEX CM 通知單匯出 XLS（指定日期區間）
+./run-job.sh -e .env.a retex cm_ax_import 2026/04/01 2026/04/14   # RETEX CM 通知單匯入及回傳 POS（指定日期區間）
 ./run-job.sh -e .env.a retex so_import 2025/01/01 2025/01/31  # RETEX SO 銷貨補跑（指定日期區間）
 ./run-job.sh -e .env.a xdelivery order    # xdelivery 退貨（前 1 日）
 ./run-job.sh -e .env.a xdelivery saas     # xdelivery SaaS 服務費
