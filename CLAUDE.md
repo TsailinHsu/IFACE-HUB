@@ -31,7 +31,8 @@ docker compose --env-file .env.a up -d iface-db
 ./run-job.sh -e .env.a eip payment
 ./run-job.sh -e .env.a eip pre_products
 ./run-job.sh -e .env.a eip product_incorrects
-./run-job.sh -e .env.a eip inventory
+./run-job.sh -e .env.a eip inventoryChange
+./run-job.sh -e .env.a eip inventoryTransfer
 ./run-job.sh -e .env.a retex daily
 ./run-job.sh -e .env.a retex cm_ax_import 2026/04/01 2026/04/14
 ./run-job.sh -e .env.a xdelivery order

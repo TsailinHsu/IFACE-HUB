@@ -116,13 +116,12 @@ jobs:
       - INVINC
 
   # ----------------------------------------------------------
-  # inventory：庫存異動（單獨補跑用）
+  # inventoryChange：庫存異動（單獨補跑用）
   # 注意：order job 已包含完整庫存異動流程
   # ----------------------------------------------------------
-  inventory:
+  inventoryChange:
     fetch:
       - type: inventory_change
-      - type: inventory_transfer
 
     procedures:
       - XXIF_INVTA_EIP_Import
@@ -130,9 +129,24 @@ jobs:
     reply:
       - endpoint: /inventory_changes/
         view: INVTA_Change_EIP_APPLY_vw
+
+    status_functions:
+      - inventoryChange
+
+  # ----------------------------------------------------------
+  # inventoryTransfer：庫存移轉（單獨補跑用）
+  # 注意：order job 已包含完整庫存移轉流程
+  # ----------------------------------------------------------
+  inventoryTransfer:
+    fetch:
+      - type: inventory_transfer
+
+    procedures:
+      - XXIF_INVTA_EIP_Import
+
+    reply:
       - endpoint: /transfers/
         view: INVTA_Transfer_EIP_APPLY_vw
 
     status_functions:
-      - inventoryChange
       - transfers
