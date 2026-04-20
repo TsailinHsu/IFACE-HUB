@@ -84,7 +84,7 @@ One `.env` file = one complete isolated company environment. `COMPOSE_PROJECT_NA
 | `iface-client/iface_client.py` | All fetcher images: `docker compose --env-file .env.a build` |
 | `iface-eip-fetcher/app/**` | `docker compose --env-file .env.a build iface-eip-fetcher` |
 | `iface-*-fetcher/app/**` | That fetcher only |
-| `iface-eip-fetcher/config/*.yml` | **No rebuild** — YAML is volume-mounted, changes take effect immediately |
+| `iface-eip-fetcher/config/*.yml` | `docker compose --env-file .env.a build iface-eip-fetcher` — YAML is COPYed into image at build time |
 
 ## iface-client API
 
