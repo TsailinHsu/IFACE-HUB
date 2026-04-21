@@ -35,6 +35,9 @@ docker compose --env-file .env.a up -d iface-db
 ./run-job.sh -e .env.a eip inventoryTransfer
 ./run-job.sh -e .env.a retex daily
 ./run-job.sh -e .env.a retex cm_ax_import 2026/04/01 2026/04/14
+./run-job.sh -e .env.a retex doc_query ST 2026/04/01 2026/04/14
+./run-job.sh -e .env.a retex so_query 2026/04/01 2026/04/14
+./run-job.sh -e .env.a retex so_import 2025/01/01 2025/01/31
 ./run-job.sh -e .env.a xdelivery order
 ./run-job.sh -e .env.a xdelivery saas
 ./run-job.sh -e .env.a currency currency_api
@@ -51,7 +54,7 @@ docker compose --env-file .env.a -f docker-compose.yml -f docker-compose.ports.y
 
 - **iface-db** (`iface-db/`): Long-running FastAPI service. All DB writes/reads/SP calls go through it. Secured by SP/View whitelists in `iface-db/app/core/config.py`.
 - **iface-eip-fetcher**: Fetches EIP e-commerce orders/payments. Job flows defined in YAML (`config/eip.yml`, `config/eipll.yml`) — no code change needed for new companies or SP names.
-- **iface-retex-fetcher**: RETEX POS daily operations, CM notification slip export (XLS to warehouse; future: WMS API), and SO back-fill.
+- **iface-retex-fetcher**: RETEX POS daily operations, CM notification slip export (XLS to warehouse; future: WMS API), and back-fill jobs: `so_query`/`doc_query` (write to IFACE only, no SP) and `so_import` (write + run SP).
 - **iface-xdelivery-fetcher**: Logistics returns and SaaS billing.
 - **iface-currency-fetcher**: Forex rates from currencyapi.com and Taiwan customs.
 - **iface-client** (`iface-client/iface_client.py`): Shared Python library installed via `pip` into every fetcher image at build time.

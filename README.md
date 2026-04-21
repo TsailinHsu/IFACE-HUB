@@ -45,7 +45,7 @@ iface-hub/
 │   └── config/
 │       ├── eip.yml                 公司 A 流程設定（MODULE=EIP）
 │       └── eipll.yml               公司 B 流程設定（MODULE=LLEIP）
-├── iface-retex-fetcher/            RETEX POS 系統（daily / cm_ax_import / so_import）
+├── iface-retex-fetcher/            RETEX POS 系統（daily / cm_ax_import / so_import / so_query / doc_query）
 ├── iface-xdelivery-fetcher/        xdelivery 物流 / Super Landing
 ├── iface-currency-fetcher/         匯率資料（currency_api / customs_rate）
 └── iface-client/                   共用 iface-db HTTP client（Python package）
@@ -223,6 +223,8 @@ docker compose --env-file .env.a images
 ./run-job.sh -e .env.a eip inventoryTransfer  # EIP 庫存移轉（補跑用）
 ./run-job.sh -e .env.a retex daily        # RETEX POS 前一日全部單據
 ./run-job.sh -e .env.a retex cm_ax_import 2026/04/01 2026/04/14   # RETEX CM 針對 A000/A118 通知單匯出及回傳 POS（指定日期區間）
+./run-job.sh -e .env.a retex doc_query ST 2026/04/01 2026/04/14   # RETEX ST/BO/MO/ME 補跑查詢並寫入 IFACE（不執行 SP）
+./run-job.sh -e .env.a retex so_query  2025/01/01 2025/01/31  # RETEX SO 銷貨補跑查詢並寫入 IFACE（不執行 SP）
 ./run-job.sh -e .env.a retex so_import 2025/01/01 2025/01/31  # RETEX SO 銷貨補跑（指定日期區間）
 ./run-job.sh -e .env.a xdelivery order    # xdelivery 退貨（前 1 日）
 ./run-job.sh -e .env.a xdelivery saas     # xdelivery SaaS 服務費
@@ -349,9 +351,28 @@ EIP API → eip_client（分頁抓取）
 6. iface_client.run_procedure("XX_UPDATE_DATASTAMP") 紀錄最新 DataStamp
 ```
 
+### RETEX SO 銷貨補跑查詢（`so_query`）
+
+指定日期區間查詢 SO 並寫入 IFACE，**不執行匯入 SP**。適用於需要先將資料寫入 IFACE、由人工確認後再手動執行 SP 的情境。
+
+```
+retex_client.query_sales(StDate, EdDate)     查詢指定區間 SO
+  → ResultNo=00：寫入 IFACE（STATUS=0）
+  → 無資料：    寫入 IFACE（STATUS=6，直接完成）
+  ※ 不呼叫 XXIF_RETEX_SO_Import
+```
+
+用法：
+
+```bash
+./run-job.sh -e .env.a retex so_query <start_date> <end_date>
+# 日期格式 YYYY/MM/DD
+./run-job.sh -e .env.a retex so_query 2025/01/01 2025/01/31
+```
+
 ### RETEX SO 銷貨補跑（`so_import`）
 
-指定日期區間手動補跑銷貨資料，適用於每日排程失敗或需要重跑歷史資料的情境。
+指定日期區間手動補跑銷貨資料並立即執行匯入 SP，適用於每日排程失敗或需要重跑歷史資料的情境。
 
 ```
 retex_client.query_sales(StDate, EdDate)     查詢指定區間 SO
@@ -366,6 +387,28 @@ iface_client.run_procedure("XXIF_RETEX_SO_Import")  匯入 Cosmos ERP
 ./run-job.sh -e .env.a retex so_import <start_date> <end_date>
 # 日期格式 YYYY/MM/DD
 ./run-job.sh -e .env.a retex so_import 2025/01/01 2025/01/31
+```
+
+### RETEX 單據補跑查詢（`doc_query`）
+
+指定單據類型（ST/BO/MO/ME）與日期區間，直接查詢並寫入 IFACE，**不執行任何匯入 SP**。
+適用於需要補跑資料、但由人工確認後再手動執行對應 SP 的情境。與 `daily` 的差異在於不傳 DataStamp，以 StDate/EdDate 為唯一過濾條件。
+
+```
+retex_client.query_docs(DocTyNo, StDate, EdDate)   # 不傳 DataStamp
+  → ResultNo=00：寫入 IFACE（STATUS=0）
+  → 無資料：    寫入 IFACE（STATUS=6，直接完成）
+  ※ 不呼叫任何匯入 SP
+```
+
+用法：
+
+```bash
+./run-job.sh -e .env.a retex doc_query <DocTyNo> <start_date> <end_date>
+# DocTyNo：ST | BO | MO | ME
+# 日期格式：YYYY/MM/DD
+./run-job.sh -e .env.a retex doc_query ST 2026/04/01 2026/04/14
+./run-job.sh -e .env.a retex doc_query BO 2026/04/01 2026/04/14
 ```
 
 ### RETEX CM 通知單匯出（`cm_ax_import`）
