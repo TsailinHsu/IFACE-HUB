@@ -8,7 +8,7 @@ import requests
 
 _BASE_URL = os.getenv("DB_API_URL", "http://iface-db:8000").rstrip("/")
 _TIMEOUT_SHORT = 30   # 寫入 / 狀態更新
-_TIMEOUT_LONG  = 120  # SP 執行（部分 SP 處理量大）
+_TIMEOUT_LONG  = 300  # SP 執行（部分 SP 處理量大）
 
 
 def iface_import(api_url: str, json_doc: dict | list, query: dict | None,

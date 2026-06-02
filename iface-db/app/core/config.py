@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     DB_POOL_SIZE:     int = 5
     DB_MAX_OVERFLOW:  int = 10
     DB_POOL_TIMEOUT:  int = 30
+    DB_QUERY_TIMEOUT: int = 360  # pymssql command timeout (seconds); must exceed HTTP _TIMEOUT_LONG
 
     @computed_field
     @property
