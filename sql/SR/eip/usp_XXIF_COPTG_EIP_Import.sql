@@ -1165,6 +1165,7 @@ SELECT
 		WHEN N'return_change'	THEN NOTE_EIP	
 		WHEN N'repost'			THEN NOTE_EIP
 		WHEN N'shopee'			THEN REF_ID
+		WHEN N'line_gift'		THEN REF_ID
 		ELSE 
 		CASE PAYMENT_METHOD
 			WHEN N'cash_on_delivery' THEN	TRACKING_CODE
