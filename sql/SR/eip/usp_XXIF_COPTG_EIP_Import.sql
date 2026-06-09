@@ -117,6 +117,8 @@ AS
 
 	v9.1 2024/10/09 BUG Fix. 修正發票日期 (TG021)
 	v9.2 2024/10/24 為解決一筆交易多筆信用卡刷卡紀錄(允許刷多張卡) payment_transaction_id, 格式變更, 原 string 變更為 json array 
+
+    v9.3 2026/06/09 shopee 訂單改由 Shopee 代開發票, 發票號碼不匯入 Cosmos ERP
 */
 
 DECLARE @COMPANY NVARCHAR(20)
@@ -1404,13 +1406,14 @@ FROM @ORDER_HEADER h
 	LEFT JOIN SR..ACTNP U ON U.NP001 = N'USD' AND U.NP002 = N'NTD' AND U.NP003 = CONVERT(VARCHAR, CONVERT(DATETIME, SHIPPED_DATE), 112) -- USD to TWD
 	LEFT JOIN SR..ACTNP R ON R.NP001 = N'RMB' AND R.NP002 = N'NTD' AND R.NP003 = CONVERT(VARCHAR, CONVERT(DATETIME, SHIPPED_DATE), 112) -- RMB to TWD
 
-WHERE 1=1
+WHERE 1=1 /* -- 移除金額及發票號碼限制, 由 EIP 控制 -- ver 9.3 Add
 	AND ( TOTAL_ORDER_AMOUNT > 0 OR										-- 銷貨金額 > 0
 		SOURCE_TYPE IN (N'return_change', N'repost', N'distributor'))	-- 排除 經銷樣品出貨, 換貨, 補貨訂單
 
 	AND (ISNULL(INVOICE_NO, N'') != N'' OR								-- 限制 台幣訂單需開發票
 		UPPER(CURRENCY) != N'TWD' OR									-- 排除 外幣
-		SOURCE_TYPE IN (N'return_change', N'repost', N'distributor'))	-- 排除 月結(經銷)客戶, 換貨, 補貨訂單
+		SOURCE_TYPE IN (N'return_change', N'repost', N'distributor', N'shopee'))	-- 排除 月結(經銷)客戶, 換貨, 補貨訂單, 蝦皮代開發票 (Ver9.3 Add)
+	*/
 
 	AND NOT EXISTS (SELECT 'X' FROM SR..COPTG WHERE TG028 = N'EIP' AND TG027 = ORDER_ID )	-- 避免重複匯入
 ;
