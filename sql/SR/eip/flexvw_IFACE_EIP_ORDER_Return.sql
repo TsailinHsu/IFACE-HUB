@@ -73,7 +73,8 @@ SELECT
 	ALLOWANCE_REMAINING,
 	INV_TRANSACTION_ID,
 	INV_RANDOM_NUMBER,
-	INV_REASON
+	INV_REASON,
+	SOURCE_TYPE
 FROM IFACE
 	CROSS APPLY	OPENJSON (JSON_DOC, '$.data') WITH 
 	(
@@ -122,7 +123,8 @@ FROM IFACE
 		ALLOWANCE_REMAINING	NUMERIC			'$.invoice.allowance_remain_amount',
 		INV_TRANSACTION_ID	NVARCHAR(100)	'$.invoice.transaction_id',
 		INV_RANDOM_NUMBER	NVARCHAR(4)		'$.invoice.random_number',
-		INV_REASON			NVARCHAR(100)	'$.invoice.reason'
+		INV_REASON			NVARCHAR(100)	'$.invoice.reason',
+		SOURCE_TYPE			NVARCHAR(100)	'$.source_type'
 	)
 WHERE 1=1 
 		AND STATUS = N'0'
