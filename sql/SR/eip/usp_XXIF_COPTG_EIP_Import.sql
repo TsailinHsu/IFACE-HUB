@@ -119,7 +119,7 @@ AS
 	v9.2 2024/10/24 為解決一筆交易多筆信用卡刷卡紀錄(允許刷多張卡) payment_transaction_id, 格式變更, 原 string 變更為 json array 
 
     v9.3 2026/06/09 shopee 訂單改由 Shopee 代開發票, 發票號碼不匯入 Cosmos ERP
-	v9.4 2026/07/02 fix performance
+	v9.4 2026/07/02 fix performance issue
 */
 
 DECLARE @COMPANY NVARCHAR(20)
