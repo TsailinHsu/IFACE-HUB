@@ -48,7 +48,7 @@ SELECT
 							WHEN N'newebpay'	THEN N'MB3000032'			-- 一頁商店共用零售客戶-Ezpay
 							WHEN N'paypal'		THEN N'FB20001002'			-- 一頁商店零售客戶-PAYPAL
 							WHEN N'molpay'		THEN N'FB20001001'			-- 一頁商店共用零售客戶-RAZER
-							ELSE N''
+							ELSE 					 N'MB3000030'		    -- 一頁商店共用零售客戶-銀行轉帳
 						END
 					))
 				WHEN N'linepay'				THEN N'MB3000038'				-- 一頁商店零售客戶-Linepay
