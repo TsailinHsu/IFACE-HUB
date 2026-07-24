@@ -94,7 +94,7 @@ class Settings(BaseSettings):
             "sql": """
                 SELECT (
                     SELECT
-                        CONCAT(RTRIM(TC001),'-',TC002)  ErpDocNo,
+                        TC079                            ErpDocNo,
                         N'V2S'                           ErpDocTyNo,
                         CONVERT(VARCHAR, CONVERT(DATETIME, TC003), 111) ErpDocDate,
                         TC009   DocNo,
