@@ -8,24 +8,24 @@ job:
 
 import sys
 import daily
-import cm_ax_import
+import cm_import
 import doc_query
 import so_import
 import so_query
 
 JOBS = {
-    "daily":        daily.run,
-    "cm_ax_import": cm_ax_import.run,
-    "doc_query":    doc_query.run,
-    "so_query":     so_query.run,
-    "so_import":    so_import.run,
+    "daily":     daily.run,
+    "cm_import": cm_import.run,
+    "doc_query": doc_query.run,
+    "so_query":  so_query.run,
+    "so_import": so_import.run,
 }
 
 
 def main() -> None:
     if len(sys.argv) < 2 or sys.argv[1] not in JOBS:
         print(f"用法: python app/main.py [{' | '.join(JOBS)}] [args...]")
-        print("  cm_ax_import 需指定日期區間：cm_ax_import <start_date> <end_date>  (格式: YYYY/MM/DD)")
+        print("  cm_import 需指定日期區間：cm_import <start_date> <end_date>  (格式: YYYY/MM/DD)  # CM 門市補貨訂單統一處理（不在 daily 排程中）")
         print("  doc_query 需指定單據與日期：doc_query <DocTyNo> <start_date> <end_date>  DocTyNo: ST|BO|MO|ME  # 寫入 IFACE，不執行 SP")
         print("  so_query  需指定日期區間：so_query  <start_date> <end_date>  (格式: YYYY/MM/DD)  # 診斷用，不寫入 IFACE")
         print("  so_import 需指定日期區間：so_import <start_date> <end_date>  (格式: YYYY/MM/DD)")

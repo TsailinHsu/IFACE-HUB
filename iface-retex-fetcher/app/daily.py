@@ -4,19 +4,21 @@ RETEX 每日主排程 job
 
 執行流程：
   1. 取得最新 DataStamp
-  2. 查詢前一日各單據類型（PO/ST/BO/MO/ME/CM）
+  2. 查詢前一日各單據類型（PO/ST/BO/MO/ME）
   3. 查詢前一日銷貨（SO）
   4. 匯入 Cosmos ERP（各 SP）
-  5. CM 轉採購單後回傳 POS（ErpDocUpdate）
-  6. 更新 DataStamp 高水位
+  5. 更新 DataStamp 高水位
+
+CM 門市補貨訂單不在此自動排程中處理，改由人工確認後
+統一透過 cm_import job 處理（見 cm_import.py）。
 """
 
 from datetime import datetime, timedelta
 
 import retex_client
-from iface_client import run_procedure, query_view, named_query
+from iface_client import run_procedure, query_view
 
-_DOC_TYPES = ["PO", "ST", "BO", "MO", "ME", "CM"]
+_DOC_TYPES = ["PO", "ST", "BO", "MO", "ME"]
 
 
 def run() -> None:
@@ -52,14 +54,6 @@ def run() -> None:
     run_procedure("XXIF_RETEX_MO_Import")  # 移倉出
     run_procedure("XXIF_RETEX_ST_Import")  # 進貨驗收
     run_procedure("XXIF_RETEX_SO_Import")  # 銷貨
-    run_procedure("XXIF_RETEX_CM_Import")  # 補貨訂單
-
-    # --- CM 轉採購單回傳 POS ---
-    create_date = datetime.strftime(datetime.now(), "%Y%m%d")
-
-    erp_orders = named_query("RETEX_CM_GET_ORDERS", create_date=create_date)
-    result = retex_client.doc_update(erp_orders)
-    print("ErpDocUpdate (一般):", result)
 
     # --- 更新 DataStamp ---
     run_procedure("XX_UPDATE_DATASTAMP")

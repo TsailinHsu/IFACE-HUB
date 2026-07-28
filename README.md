@@ -45,7 +45,7 @@ iface-hub/
 │   └── config/
 │       ├── eip.yml                 公司 A 流程設定（MODULE=EIP）
 │       └── eipll.yml               公司 B 流程設定（MODULE=LLEIP）
-├── iface-retex-fetcher/            RETEX POS 系統（daily / cm_ax_import / so_import / so_query / doc_query）
+├── iface-retex-fetcher/            RETEX POS 系統（daily / cm_import / so_import / so_query / doc_query）
 ├── iface-xdelivery-fetcher/        xdelivery 物流 / Super Landing
 ├── iface-currency-fetcher/         匯率資料（currency_api / customs_rate）
 └── iface-client/                   共用 iface-db HTTP client（Python package）
@@ -146,7 +146,7 @@ crontab -e
 
 # 公司 A — RETEX POS
 30 6  * * *  /xxx/iface-hub/run-job.sh -e .env.a retex daily       >> /var/log/iface-a-retex.log 2>&1
-0  9  * * *  /xxx/iface-hub/run-job.sh -e .env.a retex cm_ax_import $(date -d "yesterday" +\%Y/\%m/\%d) $(date -d "yesterday" +\%Y/\%m/\%d)  >> /var/log/iface-a-retex-cm.log 2>&1
+# cm_import 為 CM 門市補貨訂單統一處理，需人工確認後手動執行，不排入 crontab
 
 # 公司 A — xdelivery
 0  6  * * *  /xxx/iface-hub/run-job.sh -e .env.a xdelivery order         >> /var/log/iface-a-xdelivery-order.log 2>&1
@@ -222,7 +222,7 @@ docker compose --env-file .env.a images
 ./run-job.sh -e .env.a eip inventoryChange     # EIP 庫存異動（補跑用）
 ./run-job.sh -e .env.a eip inventoryTransfer  # EIP 庫存移轉（補跑用）
 ./run-job.sh -e .env.a retex daily        # RETEX POS 前一日全部單據
-./run-job.sh -e .env.a retex cm_ax_import 2026/04/01 2026/04/14   # RETEX CM 針對 A000/A118 通知單匯出及回傳 POS（指定日期區間）
+./run-job.sh -e .env.a retex cm_import 2026/04/01 2026/04/14   # RETEX CM 門市補貨訂單統一處理，人工確認後手動執行（指定日期區間）
 ./run-job.sh -e .env.a retex doc_query ST 2026/04/01 2026/04/14   # RETEX ST/BO/MO/ME 補跑查詢並寫入 IFACE（不執行 SP）
 ./run-job.sh -e .env.a retex so_query  2025/01/01 2025/01/31  # RETEX SO 銷貨補跑查詢並寫入 IFACE（不執行 SP）
 ./run-job.sh -e .env.a retex so_import 2025/01/01 2025/01/31  # RETEX SO 銷貨補跑（指定日期區間）
@@ -411,10 +411,12 @@ retex_client.query_docs(DocTyNo, StDate, EdDate)   # 不傳 DataStamp
 ./run-job.sh -e .env.a retex doc_query BO 2026/04/01 2026/04/14
 ```
 
-### RETEX CM 通知單匯出（`cm_ax_import`）
+### RETEX CM 門市補貨訂單統一處理（`cm_import`）
 
-此類 CM 單為通知倉庫出貨的通知單（非一般補貨採購），不走 `XXIF_RETEX_CM_Import` 產生採購單，而是直接呼叫 `XXIF_RETEX_CM_AX_QUERY` 輸出 `.xls` 通知倉庫。
-完成後執行 `XXIF_RETEX_CM_A000_Import` 將 A000/A118 單據寫入歷史表，供後續 ST 驗收匯入時查詢倉庫來源。
+CM 不在 `retex daily` 自動排程中處理，改由人工於 XLS 匯出後確認，再手動執行本 job 統一處理。分兩種倉別：
+
+- **A000/A118/A119**：通知倉庫出貨的通知單（非一般補貨採購），不走 `XXIF_RETEX_CM_Import` 產生採購單，而是執行 `XXIF_RETEX_CM_A000_Import` 將單據寫入 `XX_POS_CM_HIST` 歷史表，供後續 ST 驗收匯入時查詢倉庫來源。
+- **其他供應商（含 M100009，關係人）**：走一般採購單流程（`XXIF_RETEX_CM_Import`），寫入 `PURTC`/`PURTD`（原始 `DocNo` 存於 `PURTC.TC079`），並回傳該 CM 單號（RETEX POS 產生，格式為 `CMxxx`）給 RETEX POS 確認。M100009 額外比照 A118/A119 匯出 XLS 供人工確認。
 
 > **未來規劃**：視 WMS 系統建置進度，XLS 輸出將改為直接呼叫 WMS API 傳送通知單，毋需人工轉檔。
 
@@ -422,24 +424,29 @@ retex_client.query_docs(DocTyNo, StDate, EdDate)   # 不傳 DataStamp
 retex_client.query_docs(DocTyNo="CM", DataStamp=0, StDate, EdDate)
   → ResultNo=00：寫入 IFACE（STATUS=0）
   → 無資料：    寫入 IFACE（STATUS=6，直接完成）
-  ※ 不呼叫 XXIF_RETEX_CM_Import（非採購單流程）
 
-for (DenNo, ShopNo) in task_list:
+for (DenNo, ShopNo) in task_list:   # A118 / A119 / M100009 / A000×各分店
     iface_client.sp_query("XXIF_RETEX_CM_AX_QUERY", {ShopNo, DenNo})
-      → 有資料：寫出 YYYYMMDD_DenNo_ShopNo.xls 至 CM_QUERY_OUTPUT_DIR（預設 /output）
+      → 有資料：寫出 YYYYMMDD_DenNo[_ShopNo].xls 至 CM_QUERY_OUTPUT_DIR（預設 /output）
       → 無資料：略過
 
 iface_client.run_procedure("XXIF_RETEX_CM_A000_Import")
-  → 將 A000/A118 CM 單據記錄至 XX_POS_CM_HIST（STATUS 0→5）
+  → 將 A000/A118/A119 CM 單據記錄至 XX_POS_CM_HIST（STATUS 0→5）
   → 供 XXIF_RETEX_ST_Import 處理進貨驗收時查詢倉庫來源
+iface_client.named_query("RETEX_CM_A000_GET_ORDERS") → retex_client.doc_update(...)
+
+iface_client.run_procedure("XXIF_RETEX_CM_Import")
+  → 其餘供應商（含 M100009）轉一般採購單，寫入 PURTC/PURTD（STATUS 0→5）
+iface_client.named_query("RETEX_CM_GET_ORDERS", create_date) → retex_client.doc_update(...)
+  → ErpDocNo 取自 PURTC.TC079，即原始 CM DocNo（RETEX POS 產生，格式 CMxxx）
 ```
 
 用法：
 
 ```bash
-./run-job.sh -e .env.a retex cm_ax_import <start_date> <end_date>
+./run-job.sh -e .env.a retex cm_import <start_date> <end_date>
 # 日期格式 YYYY/MM/DD
-./run-job.sh -e .env.a retex cm_ax_import 2026/04/01 2026/04/14
+./run-job.sh -e .env.a retex cm_import 2026/04/01 2026/04/14
 ```
 
 輸出目錄透過 volume mount 寫到 Host，不保留在 container 內：

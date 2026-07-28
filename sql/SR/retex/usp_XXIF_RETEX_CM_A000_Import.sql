@@ -27,6 +27,8 @@ AS
 	v2.2 新增 A118, 指定光速火箭出貨倉別為 A118 群豐欣業
 	v2.3 2025/12/12 加上終止日, 避免誤用
 
+	v4.2 2026/07/28 新增 A119 (BOXFUL倉), 作業模式與 A118 相同
+
 	v4.0 光速展店合併至光速火箭
 		CM 門市訂單資料複製到 XX_POS_CM_HIST,
 		模擬採購紀錄, 用於驗收入庫後轉倉作業倉庫來源/目的資料
@@ -99,7 +101,7 @@ FROM IFACE
 WHERE 1=1
 	AND STATUS = '0'
 	AND APP_FUNCTION = N'CM'			-- CM  門市補貨訂單
-	AND DenNo IN (N'A000', N'A118')
+	AND DenNo IN (N'A000', N'A118', N'A119')
 	AND DocDate >= '2026/01/01 00:00:00'
 	AND NOT EXISTS (SELECT 'X' FROM XX_POS_CM_HIST t WHERE t.DocNo = h.DocNo);
 

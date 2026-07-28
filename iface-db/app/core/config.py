@@ -114,7 +114,7 @@ class Settings(BaseSettings):
                     FROM PURTC
                     WHERE TC039 = N'RETEX_POS'
                       AND CREATE_DATE = :create_date
-                      AND TC080 NOT IN (N'A000', N'A001', N'A118')
+                      AND TC080 NOT IN (N'A000', N'A001', N'A118', N'A119')
                     FOR JSON PATH, ROOT('DocData')
                 ) AS jsonResult
             """,
@@ -135,7 +135,7 @@ class Settings(BaseSettings):
                     ) AS h
                     WHERE STATUS = '5'
                       AND APP_FUNCTION = N'CM'
-                      AND DenNo IN (N'A000', N'A118')
+                      AND DenNo IN (N'A000', N'A118', N'A119')
                 ),
                 XX_LINES AS (
                     SELECT h.DocNo, DocOrd, GdsNo, PckQty

@@ -110,12 +110,12 @@ FROM XX_DOC_HEADERS h
 	LEFT JOIN SR.dbo.INVMB i ON i.MB001 = l.GdsNo 
 WHERE 1=1 
 	AND DocTyNo = N'CM' 
-	AND DenNo IN ('A000', 'A118')
+	AND DenNo IN ('A000', 'A118', 'A119', 'M100009')
 	AND PckQty > 0
 	-- AND NOT EXISTS (SELECT 'X' FROM SR..PURTC WHERE TC079 = DocNo AND TC039 = N'RETEX_POS')
 ;
 
-IF ( @DenNo = N'A118' )
+IF ( @DenNo IN (N'A118', N'A119', N'M100009') )
 	BEGIN
 		SELECT 
 			DocNo		進貨單號碼,

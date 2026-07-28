@@ -34,7 +34,7 @@ docker compose --env-file .env.a up -d iface-db
 ./run-job.sh -e .env.a eip inventoryChange
 ./run-job.sh -e .env.a eip inventoryTransfer
 ./run-job.sh -e .env.a retex daily
-./run-job.sh -e .env.a retex cm_ax_import 2026/04/01 2026/04/14
+./run-job.sh -e .env.a retex cm_import 2026/04/01 2026/04/14
 ./run-job.sh -e .env.a retex doc_query ST 2026/04/01 2026/04/14
 ./run-job.sh -e .env.a retex so_query 2026/04/01 2026/04/14
 ./run-job.sh -e .env.a retex so_import 2025/01/01 2025/01/31
