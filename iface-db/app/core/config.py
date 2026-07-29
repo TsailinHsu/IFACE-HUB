@@ -67,9 +67,9 @@ class Settings(BaseSettings):
         # EIP reply views — 庫存
         "INVTA_Transfer_EIP_APPLY_vw",     # 移倉單回傳
         "INVTA_Change_EIP_APPLY_vw",       # 庫存異動回傳
-        # EIP reply views — 請款 & 品號
+        # EIP reply views — 請款
         "ACPTA_EIP_APPLY_vw",              # 請款單回傳
-        "INVMB_EIP_APPLY_vw",              # 品號申請回傳
+        # 品號申請回傳（INVMB_EIP_APPLY_vw）已轉由 integration_hub 負責，不再由此處呼叫
         # RETEX query views
         "XX_DATASTAMP",                    # RETEX DataStamp 高水位查詢
         # xdelivery reply views

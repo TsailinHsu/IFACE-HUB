@@ -95,10 +95,7 @@ jobs:
     procedures:
       - XXIF_INVMB_Import
 
-    reply:
-      - endpoint: /pre_products/
-        view: INVMB_EIP_APPLY_vw
-
+    # reply 已轉由 integration_hub 負責，不在此執行
     status_functions:
       - preProducts
 
