@@ -115,6 +115,7 @@ class Settings(BaseSettings):
                     WHERE TC039 = N'RETEX_POS'
                       AND CREATE_DATE = :create_date
                       AND TC080 NOT IN (N'A000', N'A001', N'A118', N'A119')
+                      AND TC003 < '20260801'  -- 2026/08/01 起回傳改由 integration-hub 執行
                     FOR JSON PATH, ROOT('DocData')
                 ) AS jsonResult
             """,
@@ -136,6 +137,7 @@ class Settings(BaseSettings):
                     WHERE STATUS = '5'
                       AND APP_FUNCTION = N'CM'
                       AND DenNo IN (N'A000', N'A118', N'A119')
+                      AND DocDate < '2026-08-01'  -- 2026/08/01 起回傳改由 integration-hub 執行
                 ),
                 XX_LINES AS (
                     SELECT h.DocNo, DocOrd, GdsNo, PckQty
