@@ -61,6 +61,8 @@ _TASK_LIST = [
     ("A000", "BDA10"),
     ("A000", "BAA150"),
     ("A000", "BAB60"),
+    ("A000", "BAA160"),
+    ("A000", "BAC100")
 ]
 
 _TEXT_STYLE = xlwt.easyxf(num_format_str="@")
